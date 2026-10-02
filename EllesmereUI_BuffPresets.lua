@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 --------------------------------------------------------------------------------
 --  EllesmereUI_BuffPresets.lua
 --  THE single curation source for the 10 buff filter presets (Defensives,
@@ -516,7 +517,7 @@ spells = {
 }
 
 local RUNNING, OTHER
-if EllesmereUI.IS_FOREVER == true then
+if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
     RUNNING, OTHER = ForeverCatalogue(), RETAIL_PRESETS
 else
     RUNNING, OTHER = RETAIL_PRESETS, ForeverCatalogue()

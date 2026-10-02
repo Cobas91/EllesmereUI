@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIChat.lua
 --
@@ -1628,7 +1629,8 @@ local SIDEBAR_CHAIN_KEYS = {
 -- No keystones on Forever, so no season portals (the Minimap button is never
 -- built there either): the M+ Portals icon leaves the chain, which also drops
 -- it from creation and from the options icon list. Every button reader guards.
-if EllesmereUI.IS_FOREVER then
+-- Classic Era has no keystones either.
+if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
     for i = #SIDEBAR_CHAIN_KEYS, 1, -1 do
         if SIDEBAR_CHAIN_KEYS[i] == "showPortals" then table.remove(SIDEBAR_CHAIN_KEYS, i) end
     end
@@ -1833,6 +1835,14 @@ end
 -- Resolve the blob and the ACTIVE layout entry under the proof rule.
 -- Returns blob, entry, sysChat, setEnum (nil on any unexpected shape).
 local function EMChatResolve()
+    -- No Edit Mode on Classic Era: C_EditMode is stubbed to a neutral TABLE
+    -- (GetLayouts/SaveLayouts exist as no-op functions, so the truthy check
+    -- alone would pass). This sync is a secondary mirror of the position
+    -- Edit Mode would otherwise own; our own SavedVariables-based
+    -- cfg.chatSize/cfg.chatPosition (see ApplyChatPosition) stays the sole
+    -- and sufficient store there, so bail out explicitly rather than rely on
+    -- EMChatEnums() failing a step later for the same reason.
+    if EllesmereUI.IS_CLASSIC_ERA then return nil end
     if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts) then return nil end
     local sysChat, setEnum, layEnum = EMChatEnums()
     if not sysChat then return nil end
@@ -1953,7 +1963,7 @@ ns._EMChatSizeDelta = EMChatSizeDelta
 -- (anchor guard installed) so it can never fire early.
 do
     local emWatch = CreateFrame("Frame")
-    emWatch:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
+    EUI_SafeRegisterEvent(emWatch, "EDIT_MODE_LAYOUTS_UPDATED")
     emWatch:SetScript("OnEvent", function()
         local cfg = ECHAT.DB()
         if not (cfg and cfg.chatPosition) then return end
@@ -4515,7 +4525,7 @@ local function SkinChatFrame(cf)
             end
 
             local fcEvents = CreateFrame("Frame")
-            fcEvents:RegisterEvent("BN_FRIEND_LIST_SIZE_CHANGED")
+            EUI_SafeRegisterEvent(fcEvents, "BN_FRIEND_LIST_SIZE_CHANGED")
             fcEvents:RegisterEvent("BN_FRIEND_ACCOUNT_ONLINE")
             fcEvents:RegisterEvent("BN_FRIEND_ACCOUNT_OFFLINE")
             fcEvents:RegisterEvent("FRIENDLIST_UPDATE")
@@ -5362,7 +5372,7 @@ initFrame:SetScript("OnEvent", function(self)
             end)
         end
         local editModeStyleFrame = CreateFrame("Frame")
-        editModeStyleFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
+        EUI_SafeRegisterEvent(editModeStyleFrame, "EDIT_MODE_LAYOUTS_UPDATED")
         editModeStyleFrame:SetScript("OnEvent", function()
             C_Timer.After(0, QueueEditModeTabStyle)
         end)
@@ -5385,9 +5395,13 @@ initFrame:SetScript("OnEvent", function(self)
     -- runs after HouseEditorFrame's show/hide has set the full-screen frame --
     -- never an EventRegistry callback or a hook, both of which would run our
     -- body inside Blizzard's own execution.
-    if C_HouseEditor and C_HouseEditor.IsHouseEditorActive then
+    -- Midnight 12.0 player housing does not exist on Classic Era: C_HouseEditor
+    -- is a stubbed TABLE (truthy), not nil, so a bare "if C_HouseEditor" would
+    -- wrongly register a HOUSE_EDITOR_MODE_CHANGED listener that can never fire
+    -- there. HOUSE_EDITOR_MODE_CHANGED is never true/applicable on Classic Era.
+    if not EllesmereUI.IS_CLASSIC_ERA and C_HouseEditor and C_HouseEditor.IsHouseEditorActive then
         local houseEditorFrame = CreateFrame("Frame")
-        houseEditorFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+        EUI_SafeRegisterEvent(houseEditorFrame, "HOUSE_EDITOR_MODE_CHANGED")
         houseEditorFrame:SetScript("OnEvent", function()
             C_Timer.After(0, ECHAT.ApplyPanelHost)
         end)

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  Nameplates_Options\ColorsPage_Options.lua
 --  Nameplates options: the Colors page (BuildColorsPage) and the mini preview
@@ -962,7 +963,7 @@ local function BuildColorsPage(pageName, parent, yOffset)
     -- WoW Forever Threat % helpers and toggle (nil on retail, where Show Threat On
     -- takes the Off-Tank row's right slot instead).
     local threatPctOff, ThreatPctSet, offTankRightCfg
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         threatPctOff = function() return not DBVal("threatPctEnabled") end
         ThreatPctSet = function(key, v)
             DB()[key] = v
@@ -1013,7 +1014,7 @@ local function BuildColorsPage(pageName, parent, yOffset)
 
     -- Row 5 (WoW Forever only): Threat % Position (left) ---- Show Threat On (right).
     local chanRow = offTankRow
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local threatPctRow
         threatPctRow, h = W:DualRow(parent, y,
             { type="dropdown", text="Threat % Position",

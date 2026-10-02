@@ -1,9 +1,30 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIBags.lua -- Enhanced Bags System for EllesmereUI (Midnight): sidebar category filter + flat item grid layout.
 -------------------------------------------------------------------------------
 if not (EllesmereUI and EllesmereUI._ModuleNS) then EUI_CLIENT_BLOCKED = true; return end -- stale-parent guard: a partially updated install (old parent, new child) goes dormant via the line-1 failsafe instead of erroring
 local ns = select(2, ...)
+-- Last player container: 5 is the reagent bag on retail/Forever, but on
+-- Classic Era it is the first BANK bag (bank bags are 5-10 there), which must
+-- never be read as part of the player's inventory.
+ns.LAST_BAG = EllesmereUI.IS_CLASSIC_ERA and 4 or 5
+
+-- Classic Era item buttons carry no ItemButtonMixin methods; the client has the
+-- older global helpers instead (SetItemButtonTexture(button, ...) etc.). Our own
+-- buttons get thin method wrappers over those when the mixin is absent.
+function ns.EnsureItemButtonMethods(btn)
+    if btn.SetItemButtonTexture then return end
+    btn.SetItemButtonTexture = function(self, tex) SetItemButtonTexture(self, tex) end
+    btn.SetItemButtonCount = function(self, count) SetItemButtonCount(self, count) end
+    btn.SetItemButtonQuality = function(self, quality, link)
+        if SetItemButtonQuality then return SetItemButtonQuality(self, quality, link) end
+        local border = self.IconBorder
+        if not border then return end
+        local c = quality and quality > 1 and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+        if c then border:SetVertexColor(c.r, c.g, c.b); border:Show() else border:Hide() end
+    end
+end
 EllesmereUI._ModuleNS["EllesmereUIBags"] = ns  -- LOD options files read this module ns via the registry
 
 EUI_Bags = CreateFrame("Frame", "EUI_MainBagFrame", UIParent)
@@ -12,8 +33,8 @@ EUI_Bags:Hide()
 -- Auto-size state: reset on close (next open sizes from its first/active tab);
 -- while open it only grows, never shrinks.
 EUI_Bags:HookScript("OnHide", function(self)
-    -- WoW Forever sizes every open to its content: a hidden UI (Alt-Z) is not a close, keep the size.
-    if EllesmereUI.IS_FOREVER and self:IsShown() then return end
+    -- WoW Forever and Classic Era size every open to its content: a hidden UI (Alt-Z) is not a close, keep the size.
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and self:IsShown() then return end
     self._asCols  = nil
     self._asMaxGridW = nil
     self._asMaxH  = nil
@@ -98,7 +119,7 @@ EllesmereUI._BagsItemUnusable = BagsItemUnusable  -- local EUI alias is declared
 do
     local f = CreateFrame("Frame")
     f:RegisterEvent("PLAYER_LEVEL_UP")
-    f:RegisterEvent("PLAYER_LEVEL_CHANGED")
+    EUI_SafeRegisterEvent(f, "PLAYER_LEVEL_CHANGED")
     f:SetScript("OnEvent", function() wipe(_canUseCache) end)
 end
 -- Weak-keyed bank-deposit routing state: custom keys written onto a ContainerFrameItemButtonTemplate
@@ -1134,7 +1155,7 @@ local function CreateHeader()
             local function DoOnePass()
                 if InCombatLockdown() then return false end  -- combat started: stop moving items
                 local stacks = {}  -- itemID -> { {bag,slot,count}, ... }
-                for bag = 0, 5 do
+                for bag = 0, ns.LAST_BAG do
                     local numSlots = C_Container.GetContainerNumSlots(bag)
                     for slot = 1, numSlots do
                         local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -1375,7 +1396,7 @@ local function CreateHeader()
         -- Sort items per category and save the order
         local cats = EUI_CategoryManager:GetCategories()
         local tempItems = {}
-        for bag = 0, 5 do
+        for bag = 0, ns.LAST_BAG do
             local numSlots = C_Container.GetContainerNumSlots(bag)
             for slot = 1, numSlots do
                 local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -1783,6 +1804,8 @@ local function CaptureCurrentCharacterGold()
 end
 
 local function CaptureWarbandGold()
+    -- No Warband/account-wide bank on Classic Era; there's nothing to capture.
+    if EllesmereUI.IS_CLASSIC_ERA then return end
     if not C_Bank or not C_Bank.FetchDepositedMoney then return end
     InitializeCharacterGold()
     local gold = C_Bank.FetchDepositedMoney(Enum.BankType.Account) or 0
@@ -2183,7 +2206,7 @@ local function SyncBagFrameToFooter()
     if footerH == prev then return end
     if not EUI_Bags:IsVisible() then return end
     local delta = footerH - prev
-    if BP().bagAutoSize or (EUI.IS_FOREVER and not BP().bagHeight) then
+    if BP().bagAutoSize or ((EUI.IS_FOREVER or EUI.IS_CLASSIC_ERA) and not BP().bagHeight) then
         EUI_Bags._asMaxH = math.max(EUI_Bags._asMaxH or EUI_Bags:GetHeight() or 0, EUI_Bags:GetHeight() + delta)
         EUI_Bags:SetHeight(EUI_Bags._asMaxH)
     elseif BP().bagHeight then
@@ -3170,6 +3193,7 @@ local function GetOrCreateReagentSlot(idx)
     local slotParent = CreateFrame("Frame", nil, EUI_BagsReagent)
     slotParent:SetSize(SLOT_SIZE, SLOT_SIZE)
     local btn = CreateFrame("ItemButton", nil, slotParent, "ContainerFrameItemButtonTemplate")
+    ns.EnsureItemButtonMethods(btn)
     btn:SetAllPoints(slotParent)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:RegisterForDrag("LeftButton")
@@ -3260,7 +3284,7 @@ end
 function EUI_Bags:WarmSlotPool(msBudget)
     local t0 = msBudget and debugprofilestop()
     local total = 0
-    for bag = 0, 5 do
+    for bag = 0, ns.LAST_BAG do
         total = total + (C_Container.GetContainerNumSlots(bag) or 0)
     end
     -- Only the pool for the latched display mode is built; mode unknown
@@ -3933,8 +3957,8 @@ EnterPinSelectMode = function()
     end
     -- Position catcher over the scroll frame area
     local sf = EUI_Bags._scrollFrame
-    if sf and EUI.IS_FOREVER then
-        -- WoW Forever: the window can grow while open (fit to content), so the catcher follows the scroll frame.
+    if sf and (EUI.IS_FOREVER or EUI.IS_CLASSIC_ERA) then
+        -- WoW Forever / Classic Era: the window can grow while open (fit to content), so the catcher follows the scroll frame.
         EUI_Bags._pinCatcher:ClearAllPoints()
         EUI_Bags._pinCatcher:SetAllPoints(sf)
     elseif sf then
@@ -4668,7 +4692,7 @@ local function PadCategoryEntries(root, btn, cat, catIdx, isGroupHeader, isGroup
     if cat.isPinned then
         local pinned = EllesmereUIDB and EllesmereUIDB.bagPinnedItems
         local seen
-        for bag = 0, 5 do
+        for bag = 0, ns.LAST_BAG do
             for slot = 1, (pinned and C_Container.GetContainerNumSlots(bag) or 0) do
                 local info = C_Container.GetContainerItemInfo(bag, slot)
                 local link = info and info.itemID and C_Container.GetContainerItemLink(bag, slot)
@@ -5905,13 +5929,13 @@ local function FinishRefresh(curY, gridContentW, sidebarW, totalCount, numEmpty)
     local currencyFooterH = UpdateCurrencyDisplays(totalW) or FOOTER_H
 
     -- A grip-set height overrides WoW Forever's grow-only content fit (Auto-Size hides the grip)
-    if BP().bagAutoSize or (EUI.IS_FOREVER and not userH) then
+    if BP().bagAutoSize or ((EUI.IS_FOREVER or EUI.IS_CLASSIC_ERA) and not userH) then
         local sc = EUI_Bags:GetScale(); if not sc or sc <= 0 then sc = 1 end
         local maxH = (UIParent:GetHeight() / sc) * 0.95
         local fitH = contentH + HEADER_H + currencyFooterH + 2
         local neededH
-        if EUI.IS_FOREVER then
-            -- WoW Forever bags hold far fewer slots: fit the content instead of flooring at FIXED_H, never shorter
+        if EUI.IS_FOREVER or EUI.IS_CLASSIC_ERA then
+            -- WoW Forever and Classic Era bags hold far fewer slots: fit the content instead of flooring at FIXED_H, never shorter
             -- than the category list; without Auto-Size the normal height stays the cap (taller content scrolls).
             if not BP().bagAutoSize then maxH = math.min(maxH, FIXED_H + currencyFooterH - FOOTER_H) end
             local sbHdr, sbChild = EUI_Bags._sidebarHdr, EUI_Bags._sidebarChild
@@ -5979,7 +6003,7 @@ function EUI_Bags:RefreshInventory()
     local tempItems = {}
     local emptySlots = {}
 
-    for bag = 0, 5 do
+    for bag = 0, ns.LAST_BAG do
         local numSlots = C_Container.GetContainerNumSlots(bag)
         for slot = 1, numSlots do
             local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -6014,7 +6038,9 @@ function EUI_Bags:RefreshInventory()
                     end
                     -- Warbound check (warbank dim overlay) + WuE bind check (gear only, when bind-type text is enabled).
                     if loc and C_Item.DoesItemExist(loc) then
-                        if C_Bank and C_Bank.IsItemAllowedInBankType then
+                        -- No Warband/account bank on Classic Era, so there's no
+                        -- "can't be warbanked" state to dim for.
+                        if not EllesmereUI.IS_CLASSIC_ERA and C_Bank and C_Bank.IsItemAllowedInBankType then
                             d._isWarbound = C_Bank.IsItemAllowedInBankType(Enum.BankType.Account, loc)
                         end
                         if isGear and not info.isBound and BP().bagDisplayBindType then
@@ -6022,7 +6048,9 @@ function EUI_Bags:RefreshInventory()
                         end
                     end
                     -- Keystone data (rare, fast string match gates the API calls)
-                    if info.itemID == 180653 or itemLink:find("keystone:", 1, true) then
+                    -- No Mythic+/keystones on Classic Era; itemID 180653 doesn't exist
+                    -- and no item link ever carries a "keystone:" segment, so skip outright.
+                    if not EllesmereUI.IS_CLASSIC_ERA and (info.itemID == 180653 or itemLink:find("keystone:", 1, true)) then
                         local ksMap, ksLvl = itemLink:match("keystone:[^:]*:(%d+):(%d+)")
                         if ksLvl then
                             d._ksLevel = ksLvl
@@ -6242,7 +6270,7 @@ function EUI_Bags:RefreshInventory()
             -- MultiBag: one section per bag that has slots (+ reagent)
             n = #tempItems + #emptySlots
             S = 0
-            for bag = 0, 5 do if C_Container.GetContainerNumSlots(bag) > 0 then S = S + 1 end end
+            for bag = 0, ns.LAST_BAG do if C_Container.GetContainerNumSlots(bag) > 0 then S = S + 1 end end
             if S < 1 then S = 1 end
         else
             -- OneBag / group view: a few sections (pinned/recent/main/reagent)
@@ -6693,12 +6721,12 @@ local function StartAddon()
         if event == "CURSOR_CHANGED" or GetCursorInfo() == "item" then SyncDropBorder() end
     end)
     EUI_Bags:HookScript("OnShow", function()
-        cursorWatch:RegisterEvent("CURSOR_CHANGED")
+        EUI_SafeRegisterEvent(cursorWatch, "CURSOR_CHANGED")
         cursorWatch:RegisterEvent("ITEM_LOCK_CHANGED")
         extDirty = true
     end)
     EUI_Bags:HookScript("OnHide", function()
-        cursorWatch:UnregisterEvent("CURSOR_CHANGED")
+        EUI_SafeUnregisterEvent(cursorWatch, "CURSOR_CHANGED")
         cursorWatch:UnregisterEvent("ITEM_LOCK_CHANGED")
         hoverFrame = false
         extDirty = true
@@ -6747,7 +6775,7 @@ local function StartAddon()
         local watch = EUI_Bags._padCursorWatch
         if on then
             if not watch then PadPlaceButton(); watch = EUI_Bags._padCursorWatch end
-            watch:RegisterEvent("CURSOR_CHANGED")
+            EUI_SafeRegisterEvent(watch, "CURSOR_CHANGED")
             watch:RegisterEvent("ITEM_LOCK_CHANGED")
             PadPlaceSync()
         elseif watch then
@@ -6845,7 +6873,9 @@ local function StartAddon()
                 EUI_Bags._doVisualSort()
             end
             EllesmereUIDB.bagsVisible = true
-            local detach = BP().detachReagentBag or false
+            -- No reagent bag (bag slot 5) on Classic Era, so the detached
+            -- reagent window would just show up permanently empty -- skip it.
+            local detach = not EllesmereUI.IS_CLASSIC_ERA and (BP().detachReagentBag or false)
             if detach then
                 EUI_BagsReagent:Show()
                 EUI_BagsReagent:RefreshInventory()
@@ -6915,10 +6945,22 @@ local function StartAddon()
     -- way to count them from a distance -- detection just freezes at the bank
     -- instead, the same as it does for mail.
     local function MailOpen()
+        if EllesmereUI.IS_CLASSIC_ERA then
+            -- No C_PlayerInteractionManager on Classic Era; the mailbox state is
+            -- already tracked via the old MAIL_CLOSED/HookSendMail-driven
+            -- _openItemPanels["sendmail"] flag below, so reuse that directly.
+            return _openItemPanels["sendmail"] or false
+        end
         return (C_PlayerInteractionManager and C_PlayerInteractionManager.IsInteractingWithNpcOfType
             and C_PlayerInteractionManager.IsInteractingWithNpcOfType(Enum.PlayerInteractionType.MailInfo)) and true or false
     end
     local function BankOpen()
+        if EllesmereUI.IS_CLASSIC_ERA then
+            -- No account banker/Warband bank on Classic Era; the old
+            -- BANKFRAME_OPENED/BANKFRAME_CLOSED events already drive
+            -- _openItemPanels["bank"] below, so reuse that instead.
+            return _openItemPanels["bank"] or false
+        end
         if not (C_PlayerInteractionManager and C_PlayerInteractionManager.IsInteractingWithNpcOfType) then return false end
         return (C_PlayerInteractionManager.IsInteractingWithNpcOfType(Enum.PlayerInteractionType.Banker)
             or C_PlayerInteractionManager.IsInteractingWithNpcOfType(Enum.PlayerInteractionType.AccountBanker)) and true or false
@@ -6926,7 +6968,7 @@ local function StartAddon()
 
     local function TallyItemCounts()
         local counts, order = {}, {}
-        for bag = 0, 5 do
+        for bag = 0, ns.LAST_BAG do
             local numSlots = C_Container.GetContainerNumSlots(bag)
             for slot = 1, numSlots do
                 local info = C_Container.GetContainerItemInfo(bag, slot)
@@ -7040,14 +7082,14 @@ local function StartAddon()
     EUI_Bags:RegisterEvent("BAG_UPDATE_DELAYED")
     EUI_Bags:RegisterEvent("PLAYER_MONEY")
     EUI_Bags:RegisterEvent("ITEM_LOCK_CHANGED")
-    EUI_Bags:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+    EUI_SafeRegisterEvent(EUI_Bags, "CURRENCY_DISPLAY_UPDATE")
     -- A keystone's encoded level changing (downgrade on completion, or on reset)
     -- doesn't reliably fire BAG_UPDATE for its slot, so the keystone level text
     -- painted by RefreshInventory goes stale while bags stay open across the
     -- run -- GameTooltip looks correct because it re-queries fresh on every
     -- hover, independent of our repaint cycle. Force a refresh on these too.
-    EUI_Bags:RegisterEvent("CHALLENGE_MODE_COMPLETED")
-    EUI_Bags:RegisterEvent("CHALLENGE_MODE_RESET")
+    EUI_SafeRegisterEvent(EUI_Bags, "CHALLENGE_MODE_COMPLETED")
+    EUI_SafeRegisterEvent(EUI_Bags, "CHALLENGE_MODE_RESET")
     -- Lindormi's NPC-dialogue keystone downgrade is the same in-place encoded-
     -- level change as above, just triggered outside any dungeon run -- neither
     -- CHALLENGE_MODE event applies (both are scoped to an active M+ run's
@@ -7062,17 +7104,21 @@ local function StartAddon()
     -- classify pass; the event only serves the split children and name labels).
     function EUI_Bags.UpdateSetEventRegistration()
         if BP().bagSplitSetGearBySet or BP().bagShowSetGearName == true then
-            EUI_Bags:RegisterEvent("EQUIPMENT_SETS_CHANGED")
+            EUI_SafeRegisterEvent(EUI_Bags, "EQUIPMENT_SETS_CHANGED")
         else
-            EUI_Bags:UnregisterEvent("EQUIPMENT_SETS_CHANGED")
+            EUI_SafeUnregisterEvent(EUI_Bags, "EQUIPMENT_SETS_CHANGED")
         end
     end
     EUI_Bags.UpdateSetEventRegistration()
     -- Replays a refresh that was deferred during combat (secure-button taint guard).
     EUI_Bags:RegisterEvent("PLAYER_REGEN_ENABLED")
     -- Drives the post-mailbox/bank Recent Items resync (see MailOpen/BankOpen/DetectNewItems above).
-    if C_PlayerInteractionManager then
-        EUI_Bags:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+    -- No C_PlayerInteractionManager/PLAYER_INTERACTION_MANAGER_FRAME_HIDE on Classic
+    -- Era (the compat shim stubs the namespace to a non-nil table, so this can no
+    -- longer rely on the plain truthy check) -- MailOpen/BankOpen already read the
+    -- old-events-driven _openItemPanels state instead, so skip registering it there.
+    if not EllesmereUI.IS_CLASSIC_ERA and C_PlayerInteractionManager then
+        EUI_SafeRegisterEvent(EUI_Bags, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
     end
 
     -- Panels that move items one bag slot at a time (see SetItemPanelOpen).

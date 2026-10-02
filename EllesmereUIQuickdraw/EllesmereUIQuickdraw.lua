@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIQuickdraw.lua  --  hold-to-open action palette for EllesmereUI
 --
@@ -439,8 +440,15 @@ local function MigrateNames(p)
             -- which runs SlotUsability through C_Item.IsUsableItem -- always
             -- "unusable" for a toy -- instead of the toy path, which leaves
             -- them untinted. Same fix, applied to what was already saved.
+            --
+            -- PlayerHasToy is a bare Retail global (Toy Box), not a C_*
+            -- namespace, so the EllesmereUI_ClassicCompat safety net does not
+            -- cover it -- it is simply absent on Classic Era, which has no
+            -- Toy Box. Guarded so a saved palette with an old item-kind toy
+            -- slot just keeps its kind="item" classification here instead of
+            -- erroring on the call.
             if slot.kind == "item" and type(slot.id) == "number"
-               and PlayerHasToy(slot.id) then
+               and PlayerHasToy and PlayerHasToy(slot.id) then
                 slot.kind = "toy"
             end
         end
@@ -942,6 +950,15 @@ end
 -- palette carried to an alt would otherwise point at somebody else's spec. A
 -- dynamicspec slot banks the position instead, and means it -- the second on a
 -- druid and the second on a warrior are both simply "the second one".
+--
+-- Classic Era has no specialization system at all (no C_SpecializationInfo,
+-- no GetSpecialization) -- EllesmereUI_ClassicCompat.lua shims
+-- C_SpecializationInfo to a neutral table whose GetNumSpecializationsForClassID
+-- always answers 0, so this always falls through to nil on this client. Both
+-- "spec" and "dynamicspec" slots therefore always read as unusable
+-- (SlotUsable) and go dark under Hide Unusable Entries; see also
+-- FireInsecure, which additionally disables the SetSpecialization call
+-- itself rather than relying only on this answering nil.
 local function SpecIndexFor(slot)
     if not slot or not C_SpecializationInfo then return nil end
     local classID = select(3, UnitClass("player"))
@@ -1071,6 +1088,18 @@ ns.ProfessionPositionName = function(index, extra, specialization)
 end
 
 -- Store the stable outfitID; the secure action uses the reorderable index.
+--
+-- "Outfit" here means a saved Transmog appearance set (C_TransmogOutfitInfo),
+-- not a real gear set -- this module has no C_EquipmentSet code path at all.
+-- Classic Era has no Transmog system, so there is no equivalent to redirect
+-- to; the feature is left disabled via the stub rather than removed outright.
+-- EllesmereUI_ClassicCompat.lua shims C_TransmogOutfitInfo to a neutral
+-- no-op table, so GetOutfitInfo always answers nil here, OutfitInfo always
+-- answers nil, SlotUsable("outfit") is always false (outfit slots go dark
+-- under Hide Unusable Entries), and OutfitSlots() below always answers an
+-- empty list (nothing to pick in the options page). No saved "outfit" slot
+-- can fire on this client; it just sits inert like any other kind the
+-- character cannot use.
 function ns.OutfitInfo(slot)
     local id = type(slot) == "table" and slot.id or slot
     local info = type(id) == "number" and C_TransmogOutfitInfo.GetOutfitInfo(id)
@@ -1222,8 +1251,9 @@ do
     -- Forever also splits the spellbook and the talents into two micro
     -- buttons. Its combined button still exists but opens on whichever tab
     -- was last shown, so there the spellbook entry clicks the spellbook's own
-    -- button and a Talents entry follows it.
-    if EllesmereUI.IS_FOREVER then
+    -- button and a Talents entry follows it. Classic Era has no Great Vault and
+    -- the same two separate buttons (no combined one at all).
+    if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
         for _, def in ipairs(PANELS) do
             if def.key == "greatvault" then def.fire = nil end
         end
@@ -1805,11 +1835,21 @@ local function FireInsecure(slot)
         ns.PanelFire(ns.PanelDef(slot))
 
     elseif slot.kind == "spec" or slot.kind == "dynamicspec" then
-        local index = SpecIndexFor(slot)
-        -- Refused in combat by the game itself, with its own error message.
-        -- Nothing to defer to PLAYER_REGEN_ENABLED: a spec change the user
-        -- asked for mid-fight and got minutes later is not what they meant.
-        if index then C_SpecializationInfo.SetSpecialization(index) end
+        -- Classic Era has no specialization system at all (GetSpecialization
+        -- always answers nil), so there is nothing a "spec" or "dynamicspec"
+        -- slot could ever switch to here -- SpecIndexFor already answers nil
+        -- for both kinds on this client (see SpecIndexFor), which is why
+        -- SlotUsable already filters these off the ring under Hide Unusable
+        -- Entries. This action is disabled outright rather than left to fall
+        -- through to a no-op index check, so the intent reads at the call
+        -- site rather than only in SpecIndexFor's comments.
+        if not EllesmereUI.IS_CLASSIC_ERA then
+            local index = SpecIndexFor(slot)
+            -- Refused in combat by the game itself, with its own error message.
+            -- Nothing to defer to PLAYER_REGEN_ENABLED: a spec change the user
+            -- asked for mid-fight and got minutes later is not what they meant.
+            if index then C_SpecializationInfo.SetSpecialization(index) end
+        end
     end
 end
 
@@ -1889,6 +1929,14 @@ local function SlotDisplay(slot)
         return icon or QUESTION_MARK, name or slot.name
 
     elseif k == "toy" then
+        -- No Toy Box on Classic Era; C_ToyBox is shimmed to a neutral table
+        -- (EllesmereUI_ClassicCompat.lua), so GetToyInfo always answers nil
+        -- here and this entry always falls back to drawing slot.name/
+        -- QUESTION_MARK below. A player cannot own a toy on this client in
+        -- the first place (PlayerHasToy is guarded off elsewhere), so a
+        -- "toy" slot can only exist on an imported/shared palette, and it
+        -- correctly just sits inert like any other kind this character
+        -- cannot use.
         if type(slot.id) ~= "number" then return QUESTION_MARK, slot.name end
         local _, name, icon = C_ToyBox.GetToyInfo(slot.id)
         return icon or QUESTION_MARK, name or slot.name
@@ -2153,7 +2201,16 @@ local function SlotCooldown(slot)
             -- a mountID up as a spellID reports some unrelated spell's cooldown.
             id = slot.spellID or select(2, C_MountJournal.GetMountInfoByID(slot.id))
         elseif k == "outfit" then
-            id = Constants.TransmogOutfitDataConsts.EQUIP_TRANSMOG_OUTFIT_MANUAL_SPELL_ID
+            -- Constants.TransmogOutfitDataConsts is a plain global table
+            -- field, not a C_* namespace, so the compat shim does not cover
+            -- it -- Classic Era has no Transmog system at all and the whole
+            -- "Constants.Transmog*" group is simply absent, not stubbed.
+            -- Guarded rather than indexed directly; outfit slots never
+            -- resolve usable on this client anyway (see ns.OutfitInfo /
+            -- C_TransmogOutfitInfo, stubbed to neutral by the shim), so id
+            -- just stays nil here.
+            id = Constants.TransmogOutfitDataConsts
+                and Constants.TransmogOutfitDataConsts.EQUIP_TRANSMOG_OUTFIT_MANUAL_SPELL_ID
         else
             id = SlotSpellID(slot)
         end
@@ -2308,7 +2365,10 @@ local function SlotFromCursor()
         if not itemID then return nil end
         -- The Toy Box frame hands back cursorType "item", not "toy", so
         -- reclassify here to match what the search picker already stores.
-        if PlayerHasToy(itemID) then
+        -- PlayerHasToy is a bare Retail global, not a C_* namespace, so it is
+        -- simply absent on Classic Era (no Toy Box) rather than shimmed --
+        -- guarded so a plain item drag still resolves as kind="item".
+        if PlayerHasToy and PlayerHasToy(itemID) then
             return { kind = "toy", id = itemID }
         end
         return { kind = "item", id = itemID }
@@ -9517,7 +9577,7 @@ function SetEventsEnabled(on)
         EQD:RegisterEvent("SPELLS_CHANGED", RequestPush)
         EQD:RegisterEvent("UPDATE_MACROS", RequestPush)
         -- Re-resolve player-facing indexes after outfits change order.
-        EQD:RegisterEvent("TRANSMOG_OUTFITS_CHANGED", RequestPush)
+        EUI_SafeRegisterEvent(EQD, "TRANSMOG_OUTFITS_CHANGED", RequestPush)
         -- Which world markers are down, for a menu that is open while they
         -- move. That is SOMEBODY ELSE's doing: firing an entry closes the menu,
         -- so the presser never sees their own pip change. It is worth the one
@@ -9582,7 +9642,7 @@ function SetEventsEnabled(on)
         EQD:UnregisterEvent("PLAYER_ENTERING_WORLD")
         EQD:UnregisterEvent("SPELLS_CHANGED")
         EQD:UnregisterEvent("UPDATE_MACROS")
-        EQD:UnregisterEvent("TRANSMOG_OUTFITS_CHANGED")
+        EUI_SafeUnregisterEvent(EQD, "TRANSMOG_OUTFITS_CHANGED")
         EQD:UnregisterEvent("RAID_TARGET_UPDATE")
         EQD:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
     end

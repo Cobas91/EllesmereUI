@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_QoL_MovementAlert_Options.lua
 --  Options page for Movement Alert (registered as a page under the
@@ -721,7 +722,7 @@ local function BuildMovementAlertPage(pageName, parent, yOffset)
             -- WoW Forever: 781 is vanilla's threat drop, not a movement spell, and
             -- the tracker skips it there; it stays a preset id so a saved override
             -- is never shown as a custom cell.
-            if info and info.name and not (EllesmereUI.IS_FOREVER and primary == 781) then
+            if info and info.name and not ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and primary == 781) then
                 local dupKey = preset.class .. ":" .. info.name
                 local existing = byClassName[dupKey]
                 if existing then

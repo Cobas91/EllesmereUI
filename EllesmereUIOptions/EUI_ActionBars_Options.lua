@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBar_Options.lua
 --  Registers the Action Bars module. All get/set calls go to EAB.db.profile.
@@ -289,7 +290,7 @@ initFrame:SetScript("OnEvent", function(self)
     -- Rebuild the preview on spec change (new talent group).
     do
         local specChangeFrame = CreateFrame("Frame")
-        specChangeFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+        EUI_SafeRegisterEvent(specChangeFrame, "ACTIVE_TALENT_GROUP_CHANGED")
         specChangeFrame:SetScript("OnEvent", function(self, event)
             if event == "ACTIVE_TALENT_GROUP_CHANGED" and _barsHeaderBuilder then
                 optState.activePreview = nil

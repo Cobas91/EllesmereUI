@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIUnitFrames_PlayerAuraBars.lua
 --  12.1 AuraKit-based player buff/debuff bars.
@@ -2897,8 +2898,8 @@ do
                 end)
             end
             lastEnchCount = ActiveEnchantCount(#ENCH_INV_SLOTS)
-            enchEventFrame:RegisterEvent("WEAPON_ENCHANT_CHANGED")
-            enchEventFrame:RegisterEvent("WEAPON_SLOT_CHANGED")
+            EUI_SafeRegisterEvent(enchEventFrame, "WEAPON_ENCHANT_CHANGED")
+            EUI_SafeRegisterEvent(enchEventFrame, "WEAPON_SLOT_CHANGED")
         elseif enchEventFrame then
             enchEventFrame:UnregisterAllEvents()
             lastEnchCount = nil
@@ -3685,7 +3686,7 @@ function ns.PAB_OtherClientSpell(f, id)
     if not key then return false end
     local here = EllesmereUI.BUFF_PRESET_IDS[key]
     if here and here[id] then return false end
-    if EllesmereUI.IS_FOREVER == true then
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
         local other = EllesmereUI.BUFF_PRESET_OTHER_IDS[key]
         return (other and other[id]) == true
     end
@@ -3825,7 +3826,7 @@ end
 function ns.PAB_AddSpellToFilter(filterId, spellID)
     local f = ns.PAB_GetFilter(filterId)
     if not (f and spellID and spellID > 0) then return false end
-    local m = EllesmereUI.IS_FOREVER ~= true and f.foreverSeeded or nil
+    local m = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) ~= true and f.foreverSeeded or nil
     if f.spells[spellID] ~= nil and not (m and ns.PAB_OtherClientSpell(f, spellID)) then
         return false -- already present
     end
@@ -3948,7 +3949,7 @@ function ns.PAB_CopyBM2FiltersIn()
             -- Retail: a copied id is the library's live content, no longer a
             -- Forever-seed note.
             local m = tf.foreverSeeded
-            if m and EllesmereUI.IS_FOREVER ~= true then
+            if m and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) ~= true then
                 for id in pairs(spells) do m[id] = nil end
             end
             -- The copy overwrites what this editor shows; ids kept only for
@@ -4160,7 +4161,7 @@ function ns.PAB_ImportBM2Filters()
     -- curate under the preset is noted on the filter (f.foreverSeeded), so
     -- retail keeps it inert when the profile goes back there
     -- (ns.PAB_OtherClientSpell). Nothing is noted on retail.
-    local retailIds = EllesmereUI.IS_FOREVER == true and EllesmereUI.BUFF_PRESET_OTHER_IDS or nil
+    local retailIds = (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and EllesmereUI.BUFF_PRESET_OTHER_IDS or nil
     local function NoteSeed(f, key, id)
         if not retailIds then return end
         local cur = retailIds[key]
@@ -4366,7 +4367,7 @@ function ns.PAB_DeleteCustomBuffBar(id)
     -- (its bars, or the per-spec disables the sweep clears), which moves it
     -- to the next class spec with data (ns.PAB_ForeverSpecID); a move
     -- re-drives every custom bar once.
-    local fvSid = EllesmereUI.IS_FOREVER and ns.PAB_ForeverSpecID() or nil
+    local fvSid = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and ns.PAB_ForeverSpecID() or nil
     if s.customBuffBars then
         for i = #s.customBuffBars, 1, -1 do
             if s.customBuffBars[i].id == id then table.remove(s.customBuffBars, i) end
@@ -4380,7 +4381,7 @@ function ns.PAB_DeleteCustomDebuffBar(id)
     local s = PABEnsure()
     if not s then return end
     -- WoW Forever: same bucket-move check as ns.PAB_DeleteCustomBuffBar.
-    local fvSid = EllesmereUI.IS_FOREVER and ns.PAB_ForeverSpecID() or nil
+    local fvSid = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and ns.PAB_ForeverSpecID() or nil
     if s.customDebuffBars then
         for i = #s.customDebuffBars, 1, -1 do
             if s.customDebuffBars[i].id == id then table.remove(s.customDebuffBars, i) end
@@ -4408,7 +4409,7 @@ end
 -- "All Non Healers/Aug" its exact complement.
 local function RoleBucketForSpecID(specID)
     -- WoW Forever specs carry no role (same rule as the RaidFrames twin).
-    if EllesmereUI.IS_FOREVER then return nil end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return nil end
     if not specID then return nil end
     if specID == 1473 then return "healers" end
     local role = GetSpecializationInfoByID and select(5, GetSpecializationInfoByID(specID))
@@ -4422,7 +4423,7 @@ ns.PAB_RoleBucketForSpecID = RoleBucketForSpecID
 
 local function CurrentSpecID()
     -- WoW Forever: the retail spec the player's class acts as.
-    if EllesmereUI.IS_FOREVER then return ns.PAB_ForeverSpecID() end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return ns.PAB_ForeverSpecID() end
     local idx = GetSpecialization and GetSpecialization()
     return idx and GetSpecializationInfo and GetSpecializationInfo(idx) or nil
 end
@@ -4434,7 +4435,7 @@ function ns.PAB_InheritedGroupsFor(bucketKey)
     local sid = m and tonumber(m)
     if not sid then return nil end
     -- WoW Forever has no spec roles: a class view inherits All Specs only.
-    if EllesmereUI.IS_FOREVER then return { "allspecs" } end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return { "allspecs" } end
     local out = { "allspecs" }
     local roleKey = RoleBucketForSpecID(sid)
     if roleKey ~= "healers" then out[#out + 1] = "nonhealer" end
@@ -4470,7 +4471,7 @@ function ns.PAB_BucketHasData(id, st)
     if (b.buffBars and #b.buffBars > 0) or (b.debuffBars and #b.debuffBars > 0) then return true end
     local dis = b.inhDis
     if not (dis and next(dis) ~= nil) then return false end
-    if not EllesmereUI.IS_FOREVER then return true end
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return true end
     -- WoW Forever renders All Specs and the class's own bucket only, so only
     -- a disable of an All Specs bar counts. Scans the bar arrays in place.
     local s = PAB()
@@ -4525,7 +4526,7 @@ function ns.PAB_SetInhDisabled(concreteKey, id, disabled)
     if not (s and concreteKey and id) then return end
     -- WoW Forever: clearing the last per-spec disable can move the bucket
     -- the player's class renders (see ns.PAB_DeleteCustomBuffBar).
-    local fvSid = EllesmereUI.IS_FOREVER and ns.PAB_ForeverSpecID() or nil
+    local fvSid = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and ns.PAB_ForeverSpecID() or nil
     local b = SpecBarBucket(s, concreteKey, true)
     b.inhDis[id] = disabled and true or nil
     if fvSid and ns.PAB_ForeverSpecID() ~= fvSid then ReloadAllCustomBars() end
@@ -4537,7 +4538,7 @@ local function BucketApplies(bucketKey, sid)
     local m = bucketKey:match("^spec(%d+)$")
     if m then return sid == tonumber(m) end
     -- WoW Forever has no spec roles: no group bucket applies there.
-    if EllesmereUI.IS_FOREVER then return false end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return false end
     if not sid then return false end
     local roleKey = RoleBucketForSpecID(sid)
     if bucketKey == "nonhealer" then return roleKey ~= "healers" end
@@ -6756,14 +6757,14 @@ function ns.PAB_ArmRecovery()
     -- player's assistability for the whole ride. The bars SUPPRESS for the
     -- duration (SetVehicleHidden) and the exit edge re-drives -- same
     -- trigger set as the RF assist gate and the UF player lane.
-    initFrame:RegisterUnitEvent("UNIT_ENTERING_VEHICLE", "player")
-    initFrame:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-    initFrame:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(initFrame, "UNIT_ENTERING_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(initFrame, "UNIT_ENTERED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(initFrame, "UNIT_EXITED_VEHICLE", "player")
     -- Safety net only: an exit that never fires EXITED (teleport out of a
     -- vehicle). Zero work on ordinary loading screens.
     initFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     -- Editing-spec buckets: bucket bars follow the player's spec (handler
     -- early-returns for profiles without buckets).
-    initFrame:RegisterUnitEvent("PLAYER_SPECIALIZATION_CHANGED", "player")
+    EUI_SafeRegisterUnitEvent(initFrame, "PLAYER_SPECIALIZATION_CHANGED", "player")
 end
 

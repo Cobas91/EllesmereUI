@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_UnitFrames_Options.lua
 --  Registers the Unit Frames module with EllesmereUI
@@ -17,8 +18,8 @@ local PAGE_UNLOCK    = "Unlock Mode"
 -- Threat % Position dropdown (WoW Forever only, so nil on retail). On ns: the
 -- Main Frames page builder is near its 60-upvalue cap, and the Forever
 -- Essentials Threat page reads the same lists. Outside = beside the whole
--- frame, clear of an attached portrait.
-if EllesmereUI.IS_FOREVER then
+-- frame, clear of an attached portrait. Classic Era has the same threat API.
+if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
     ns._threatPctPositions = { RIGHT = "Inside Right", LEFT = "Inside Left", CENTER = "Inside Center",
         OUTRIGHT = "Outside Right", OUTLEFT = "Outside Left" }
     ns._threatPctPositionOrder = { "RIGHT", "LEFT", "CENTER", "OUTRIGHT", "OUTLEFT" }
@@ -2780,7 +2781,7 @@ initFrame:SetScript("OnEvent", function(self)
 
     -- Rebuild preview when spec changes (class resource pips may appear/disappear)
     local ufOptSpecFrame = CreateFrame("Frame")
-    ufOptSpecFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(ufOptSpecFrame, "PLAYER_SPECIALIZATION_CHANGED")
     ufOptSpecFrame:SetScript("OnEvent", function(_, _, unit)
         if unit ~= "player" then return end
         -- Only invalidate + rebuild when the panel is actually open. Invalidating while

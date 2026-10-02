@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIBlizzardSkin.lua
 --  Umbrella addon for themed Blizzard UI frames. Hosts the Character Sheet
@@ -2099,13 +2100,13 @@ end
         HookRoleCheckOnShow()
 
         local lfgFrame = CreateFrame("Frame")
-        lfgFrame:RegisterEvent("LFG_PROPOSAL_SHOW")
-        lfgFrame:RegisterEvent("LFG_PROPOSAL_FAILED")
-        lfgFrame:RegisterEvent("LFG_PROPOSAL_SUCCEEDED")
+        EUI_SafeRegisterEvent(lfgFrame, "LFG_PROPOSAL_SHOW")
+        EUI_SafeRegisterEvent(lfgFrame, "LFG_PROPOSAL_FAILED")
+        EUI_SafeRegisterEvent(lfgFrame, "LFG_PROPOSAL_SUCCEEDED")
         -- Fallback retry only: HookRoleCheckOnShow already ran once at load. If
         -- LFDRoleCheckPopup somehow didn't exist yet at that point, this catches it
         -- the first time a role check actually happens, before the popup shows.
-        lfgFrame:RegisterEvent("LFG_ROLE_CHECK_SHOW")
+        EUI_SafeRegisterEvent(lfgFrame, "LFG_ROLE_CHECK_SHOW")
         lfgFrame:SetScript("OnEvent", function(_, event)
             if not EllesmereUIDB then return end
             if event == "LFG_ROLE_CHECK_SHOW" then
@@ -4621,12 +4622,12 @@ end
             self:RegisterEvent("PLAYER_ENTERING_WORLD")
             self:RegisterEvent("NAME_PLATE_UNIT_ADDED")
             self:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
-            self:RegisterEvent("UPDATE_UI_WIDGET")
+            EUI_SafeRegisterEvent(self, "UPDATE_UI_WIDGET")
             -- The full-refresh partner of UPDATE_UI_WIDGET: the container
             -- mixin registers BOTH, and re-processes every widget it owns on
             -- this one. Missing it left a whole set of bars unswept until
             -- something else happened to fire.
-            self:RegisterEvent("UPDATE_ALL_UI_WIDGETS")
+            EUI_SafeRegisterEvent(self, "UPDATE_ALL_UI_WIDGETS")
             EllesmereUI._HUDWidgetAdopt = HUDWidgetAdopt
             -- The options cog's write-through. Published on the same terms as
             -- the adopt seam -- at login, only with the feature on -- so with
@@ -4791,7 +4792,7 @@ end
     local eabEv = CreateFrame("Frame")
     local _eabUpdateHooked = false
     eabEv:RegisterEvent("PLAYER_LOGIN")
-    eabEv:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
+    EUI_SafeRegisterEvent(eabEv, "UPDATE_EXTRA_ACTIONBAR")
     eabEv:SetScript("OnEvent", function()
         -- Hook install is unconditional so a mid-session enable takes effect on
         -- the button's next show; the strip and its catch-up timers are gated

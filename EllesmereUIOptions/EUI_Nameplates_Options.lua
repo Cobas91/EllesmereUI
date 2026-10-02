@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_Nameplates_Options.lua: registers the Nameplates module with EllesmereUI.
 --  All get/set calls go to ns.db.profile (centralized store); does NOT touch nameplate rendering logic.
@@ -42,7 +43,7 @@ local SECTION_OTHER     = "OTHER COLORS"
 
 -- Threat % Position dropdown (WoW Forever only, so nil on retail).
 local THREAT_PCT_POSITIONS, THREAT_PCT_POSITION_ORDER
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     THREAT_PCT_POSITIONS = { RIGHT = "Inside Right", LEFT = "Inside Left", CENTER = "Inside Center" }
     THREAT_PCT_POSITION_ORDER = { "RIGHT", "LEFT", "CENTER" }
 end
@@ -1185,7 +1186,7 @@ initFrame:SetScript("OnEvent", function(self)
     ---------------------------------------------------------------------------
     -- Rebuild preview when spec changes (class resource pips may appear/disappear)
     local npOptSpecFrame = CreateFrame("Frame")
-    npOptSpecFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(npOptSpecFrame, "PLAYER_SPECIALIZATION_CHANGED")
     npOptSpecFrame:SetScript("OnEvent", function(_, _, unit)
         if unit ~= "player" then return end
         -- Only invalidate + rebuild when the panel is open; invalidating while closed destroys all cached pages, causing a blank panel on next open.

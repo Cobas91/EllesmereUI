@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_MenuFallbacks.lua
 --
@@ -336,7 +337,7 @@ listEv:SetScript("OnEvent", function(self, event, arg1)
 end)
 
 local function ListOnShow()
-    listEv:RegisterEvent("VIEW_HOUSES_LIST_RECIEVED")
+    EUI_SafeRegisterEvent(listEv, "VIEW_HOUSES_LIST_RECIEVED")
     listEv:RegisterEvent("PLAYER_REGEN_ENABLED")
     listEv:RegisterEvent("PLAYER_ENTERING_WORLD")
 end

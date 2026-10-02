@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBars_Glows.lua
 --
@@ -304,12 +305,12 @@ function EAB:HookProcGlow()
     end
 
     local glowFrame = ns.TakeShell()
-    glowFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-    glowFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+    EUI_SafeRegisterEvent(glowFrame, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+    EUI_SafeRegisterEvent(glowFrame, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
     glowFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
     glowFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
     glowFrame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
-    glowFrame:RegisterEvent("SPELL_UPDATE_ICON")
+    EUI_SafeRegisterEvent(glowFrame, "SPELL_UPDATE_ICON")
     -- Deferred full re-scan, coalesced: mouseover-conditional macros
     -- re-resolve on every mouseover flip and fire ACTIONBAR_SLOT_CHANGED
     -- storms (dozens/sec sweeping nameplates). One pending scan covers it.

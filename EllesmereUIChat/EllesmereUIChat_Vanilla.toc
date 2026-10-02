@@ -1,0 +1,39 @@
+## Interface: 11509
+## Title: |cff0cd29fEllesmereUI|r Chat
+## Category: |cff0cd29fEllesmere|rUI
+## Group: EllesmereUI
+## Notes: Modern chat enhancements with useful utilities.
+## Author: Ellesmere
+## Version: 9.3.5
+## Dependencies: EllesmereUI
+## SavedVariables: EllesmereUIChatDB
+## SavedVariablesPerCharacter: EllesmereUIChatScrollDB
+## IconTexture: Interface\AddOns\EllesmereUI\media\eg-logo.tga
+
+# Main Luas
+EllesmereUIChat.lua
+
+# Display engine: our message frames fed by the AddMessage bridge; Blizzard's
+# chat frames stay as the secure formatting/data plane with visuals parked.
+EllesmereUIChat_Engine.lua
+
+# Owned tab strip: our buttons over Blizzard's window storage (hidden dock
+# stays the routing backend; all management via the C config API).
+EllesmereUIChat_Tabs.lua
+
+# Stock-style sidebar kits (Blizzard Style / Classic WoW UI chat button column)
+EllesmereUIChat_SidebarStock.lua
+
+# WoW Forever look (Forever client only, Blizzard Style variant): bronze
+# panel frames, tabs and sidebar kit on our own frames
+EllesmereUIChat_Forever.lua
+
+# Chat bubbles: Blizzard's own bubbles stay on, we blank their chrome and draw a styled
+# frame on the frame that carries their position.
+EllesmereUIChat_Bubbles.lua
+
+# Options
+
+# Session scrollback: bridge-tail capture (formatted lines), replay into our
+# message frames (open world only)
+EllesmereUIChat_SessionHistory.lua

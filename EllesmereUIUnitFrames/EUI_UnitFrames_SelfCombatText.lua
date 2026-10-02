@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 -- EUI_UnitFrames_SelfCombatText.lua
 -- Self combat text (damage taken, heals received, avoids, combat enter/leave)
@@ -270,13 +271,13 @@ end
 -- Registers only the events the enabled categories need.
 local function UpdateEvents()
     if Get("damage") or Get("heal") or Get("avoid") then
-        ev:RegisterEvent("COMBAT_TEXT_UPDATE")
-        ev:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-        ev:RegisterUnitEvent("UNIT_EXITING_VEHICLE", "player")
+        EUI_SafeRegisterEvent(ev, "COMBAT_TEXT_UPDATE")
+        EUI_SafeRegisterUnitEvent(ev, "UNIT_ENTERED_VEHICLE", "player")
+        EUI_SafeRegisterUnitEvent(ev, "UNIT_EXITING_VEHICLE", "player")
     else
-        ev:UnregisterEvent("COMBAT_TEXT_UPDATE")
-        ev:UnregisterEvent("UNIT_ENTERED_VEHICLE")
-        ev:UnregisterEvent("UNIT_EXITING_VEHICLE")
+        EUI_SafeUnregisterEvent(ev, "COMBAT_TEXT_UPDATE")
+        EUI_SafeUnregisterEvent(ev, "UNIT_ENTERED_VEHICLE")
+        EUI_SafeUnregisterEvent(ev, "UNIT_EXITING_VEHICLE")
     end
     if Get("combat") then
         ev:RegisterEvent("PLAYER_REGEN_DISABLED")

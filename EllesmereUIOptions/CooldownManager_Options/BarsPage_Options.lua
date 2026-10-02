@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  CooldownManager_Options\BarsPage_Options.lua
 --  Cooldown Manager options: the CDM Bars page (BuildCDMBarsPage). Definitions
@@ -885,7 +886,7 @@ local function BuildCDMBarsPage(pageName, parent, yOffset)
     -- during a hidden search pre-build for the same reason as the pageListener in BuildBarGlowsPage: OnHide cleanup may never fire for a never-visible wrapper, leaking the listener all session.
     if not EllesmereUI._prebuilding then
         local mountListener = CreateFrame("Frame")
-        mountListener:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+        EUI_SafeRegisterEvent(mountListener, "PLAYER_MOUNT_DISPLAY_CHANGED")
         mountListener:SetScript("OnEvent", function()
             EllesmereUI:RefreshPage(true)
         end)

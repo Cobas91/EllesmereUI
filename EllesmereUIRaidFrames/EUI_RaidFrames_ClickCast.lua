@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_RaidFrames_ClickCast.lua
 --  Click-casting: per-spec bindings + global target/menu/macro defaults.
@@ -136,7 +137,7 @@ local REZ_ITEMS = { 269586, 248486 }
 -- rank the character knows. Each class's dispels run in priority order (the
 -- first known line fires), Paladin is the only class with an external, and
 -- there is no group rez, no Warlock entry and no combat rez item.
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     DISPEL_SPELLS = {
         { id = 527,   name = "Dispel Magic",        class = "PRIEST", alts = { 988 } },
         { id = 552,   name = "Abolish Disease",     class = "PRIEST" },
@@ -750,7 +751,7 @@ end
 -- "/click [conditions] <proxy>" line so every macro condition still applies.
 -- A binding picked from the top rank stays unpinned and follows the highest
 -- rank as the character learns more. Never set and never read off Forever.
-local RANKS = EllesmereUI.IS_FOREVER == true
+local RANKS = (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)
 local rankProxies = {}
 local function PinnedRankID(binding, harmful)
     if not RANKS then return nil end
@@ -2501,7 +2502,7 @@ local specReadyTicker
 local function ReapplyWhenSpecReady()
     if InCombatLockdown() then pendingApply = true; return end
     -- WoW Forever characters have no spec to wait for.
-    if GetCurrentSpecID() or EllesmereUI.IS_FOREVER then ns.CC_ApplyBindings(); return end
+    if GetCurrentSpecID() or (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then ns.CC_ApplyBindings(); return end
     -- Spec not ready: only start the readiness poll when enabled -- a disabled
     -- install has nothing to re-apply, so polling would be idle cost otherwise.
     local cc = GetClickCastDB()
@@ -2616,7 +2617,7 @@ function ns.CC_Init()
     -- bills to click-cast, not the parent addon's lifecycle dispatch.
     ccEventFrame = (ns.TakeShell and ns.TakeShell()) or CreateFrame("Frame")
     ccEventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-    ccEventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(ccEventFrame, "PLAYER_SPECIALIZATION_CHANGED")
     ccEventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
     ccEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     ccEventFrame:SetScript("OnEvent", OnCCEvent)

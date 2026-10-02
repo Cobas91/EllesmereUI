@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 -- EllesmereUIQuestTracker_Visibility.lua
 --
@@ -119,7 +120,7 @@ local function ResumeQTEvents()
             local evts = EQT._eventRegistrations[i]
             if evts then
                 for _, ev in ipairs(evts) do
-                    f:RegisterEvent(ev)
+                    EUI_SafeRegisterEvent(f, ev)
                 end
             end
         end
@@ -382,6 +383,9 @@ local function ResizeBGToContent()
     -- During active M+ challenge mode, always hide BG. The tracker shows Blizzard's
     -- scenario blocks (objectives/trash count) which aren't quest content we should
     -- decorate. Prevents chrome flashing during dungeon start/timer transitions.
+    -- CLASSIC ERA: no Mythic+ exists; C_ChallengeMode is a neutral stub whose
+    -- IsChallengeModeActive always returns false, so this block never hides the
+    -- BG here -- correct, since the BG should always be free to show.
     if C_ChallengeMode and C_ChallengeMode.IsChallengeModeActive
        and C_ChallengeMode.IsChallengeModeActive() then
         if bg:IsShown() then bg:Hide() end

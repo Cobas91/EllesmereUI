@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_RaidFrames_BuffManager.lua
 --  Indicator-centric buff manager: icon/square/bar/healthcolor/border/framealpha
@@ -22,7 +23,7 @@ local type     = type
 local CreateFrame   = CreateFrame
 local issecretvalue = issecretvalue
 -- WoW Forever: the preview's numbers follow the live frames (EllesmereUI_NumberFormat.lua).
-local AbbreviateNumbers = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
+local AbbreviateNumbers = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
 local C_UnitAuras   = C_UnitAuras
 local C_Spell       = C_Spell
 local UnitExists    = UnitExists
@@ -311,7 +312,7 @@ local BORROW_SPECS = {
 local function CurrentSpecKey()
     -- WoW Forever: the retail spec the class acts as in the Buff Manager,
     -- resolved the same way (nil until the v2 file has loaded).
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local sid = ns.BM2_ForeverSpecID and ns.BM2_ForeverSpecID()
         if not sid then return nil end
         local borrow = BORROW_SPECS[sid]
@@ -345,7 +346,7 @@ end
 -- pages' editing-spec rosters. nil specID = no bucket (no spec yet).
 function ns.BM_RoleBucketForSpecID(specID)
     -- WoW Forever specs carry no role: no role bucket there.
-    if EllesmereUI.IS_FOREVER then return nil end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return nil end
     if not specID then return nil end
     if SPEC_BY_ID[specID] then return "healers" end
     local role = GetSpecializationInfoByID and select(5, GetSpecializationInfoByID(specID))
@@ -415,7 +416,7 @@ function ns.BM_InheritedGroupsFor(bucketKey, dmView)
     -- WoW Forever: a class renders All Specs and its own bucket only (no role
     -- groups there, All Non Healers/Aug included), so it inherits All Specs
     -- alone in the Buff and Debuff Manager views alike.
-    if EllesmereUI.IS_FOREVER then return out end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return out end
     if not SPEC_BY_ID[sid] then out[#out + 1] = "nonhealer" end
     local roleKey = ns.BM_RoleBucketForSpecID(sid)
     if roleKey then out[#out + 1] = roleKey end
@@ -1099,7 +1100,7 @@ function ns.BM_ApplyPreviewIndicators(f, index, s)
                 edClass = cf
             end
             -- WoW Forever: no by-ID spec lookup; the class from the spec table.
-            if not edClass and sid and EllesmereUI.IS_FOREVER then
+            if not edClass and sid and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                 edClass = EllesmereUI.SpecClassOf(tonumber(sid))
             end
         end
@@ -1504,7 +1505,7 @@ local selectedSpecKey = nil
 -- WoW Forever: the page opens on All Specs each time it is entered (a tab
 -- switch, or the panel opening on it); rebuilds while on it keep the pick.
 function ns.BM_EnterAllSpecs()
-    if not EllesmereUI.IS_FOREVER then return end
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
     ns._bm2SpecInited = true
     if selectedSpecKey == "allspecs" then return end
     selectedSpecKey = "allspecs"
@@ -1525,7 +1526,7 @@ local function SelectedBucketClass()
         return cf
     end
     -- WoW Forever: no by-ID spec lookup; the class from the spec table.
-    if sid and EllesmereUI.IS_FOREVER then return EllesmereUI.SpecClassOf(tonumber(sid)) end
+    if sid and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return EllesmereUI.SpecClassOf(tonumber(sid)) end
     return nil
 end
 -- selectedIndicator: forward-declared near preview hover/click handlers
@@ -1905,7 +1906,7 @@ function ns.BM_BuildPage(pageName, parent, yOffset)
     if ns.BM2_SpecKey and not ns._bm2SpecInited then
         ns._bm2SpecInited = true
         -- WoW Forever lands on All Specs (see ns.BM_EnterAllSpecs).
-        local landKey = EllesmereUI.IS_FOREVER and "allspecs" or ns.BM2_SpecKey()
+        local landKey = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and "allspecs" or ns.BM2_SpecKey()
         -- Non-healers land on their CONCRETE "spec<ID>" view, not the shared
         -- All Non Healers/Aug group: the concrete view is where inherited
         -- group tiles (All Specs / Non Healers / role) are visible, so the
@@ -1921,7 +1922,7 @@ function ns.BM_BuildPage(pageName, parent, yOffset)
     -- WoW Forever lists All Specs and one row per class, keyed to the bucket
     -- that class renders now: a class view follows it (the player's class
     -- moves with a live spec override's Buff Manager fork).
-    if EllesmereUI.IS_FOREVER and ns.BM2_ForeverKey and selectedSpecKey ~= "allspecs" then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and ns.BM2_ForeverKey and selectedSpecKey ~= "allspecs" then
         local cls = SelectedBucketClass()
         local key = cls and ns.BM2_ForeverKey(cls)
         if key and key ~= selectedSpecKey then
@@ -3041,7 +3042,7 @@ function ns.BM_BuildPage(pageName, parent, yOffset)
         end)
         -- WoW Forever: All Non Healers/Aug is not in the Editing Spec list
         -- there, so its tiles stay read-only (the tile toggle still works).
-        if EllesmereUI.IS_FOREVER and gkey == "nonhealer" then link:Hide() end
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and gkey == "nonhealer" then link:Hide() end
         sy = sy - 30
     elseif selectedIndicator then
         local ind = selectedIndicator

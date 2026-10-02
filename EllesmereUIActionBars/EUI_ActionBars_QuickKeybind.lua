@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBars_QuickKeybind.lua
 --
@@ -732,7 +733,7 @@ end)
             local btn = _G["EABButton" .. slot]
             if btn and btn.icon then
                 local t = btn.icon:GetTexture()
-                if not issecretvalue(t) and t == iconID then hook(btn.icon) end
+                if not (issecretvalue and issecretvalue(t)) and t == iconID then hook(btn.icon) end
             end
         end
     end

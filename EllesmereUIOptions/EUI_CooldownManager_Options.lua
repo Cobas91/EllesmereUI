@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUICooldownManager_Options.lua
 --  Registers CDM Effects module with EllesmereUI
@@ -1266,7 +1267,7 @@ initFrame:SetScript("OnEvent", function(self)
             local pagePending = false
             pageListener:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
             pageListener:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
-            pageListener:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+            EUI_SafeRegisterEvent(pageListener, "PLAYER_MOUNT_DISPLAY_CHANGED")
             pageListener:SetScript("OnEvent", function()
                 if pagePending then return end
                 pagePending = true

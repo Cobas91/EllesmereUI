@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBars_Chrome.lua
 --
@@ -443,12 +444,12 @@ function ns.AB_CapsEvSync()
                 if not ns.AB_CapsFaction(cs) then known = false end
             end
             if known and event == "PLAYER_ENTERING_WORLD" then
-                self:UnregisterEvent(event)
+                EUI_SafeUnregisterEvent(self, event)
             end
         end)
         ns._abCapsEv = ev
     end
-    ev:RegisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
+    EUI_SafeRegisterEvent(ev, "NEUTRAL_FACTION_SELECT_RESULT")
     if waiting then
         ev:RegisterEvent("PLAYER_ENTERING_WORLD")
     else
@@ -578,7 +579,7 @@ function ns.AB_ExtraCapsPad()
         end)
         ns._abCapStyleEv = ev
     end
-    ev:RegisterEvent("INPUT_DEVICE_INTERFACE_TRANSITION")
+    EUI_SafeRegisterEvent(ev, "INPUT_DEVICE_INTERFACE_TRANSITION")
 end
 
 -- Retail's bag bar keeps its full length while collapsed (the expand arrow

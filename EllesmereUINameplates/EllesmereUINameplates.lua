@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 local addon, ns = ...
 if not (EllesmereUI and EllesmereUI._ModuleNS and EllesmereUI.NewCombatQueue) then EUI_CLIENT_BLOCKED = true; return end -- stale-parent guard: a partially updated install (old parent, new child) goes dormant via the line-1 failsafe instead of erroring
 EllesmereUI._ModuleNS[addon] = ns  -- LOD options files read this module ns via the registry
@@ -216,7 +217,7 @@ local defaults = {
     threatColorName   = false,
     -- Show Threat Colors: where the threat colors apply -- "never", "instances" (party/raid
     -- instances and delves) or "always". Per client: WoW Forever defaults to "always".
-    threatColorMode = (EllesmereUI.IS_FOREVER == true) and "always" or "instances",
+    threatColorMode = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "always" or "instances",
     tankHasAggro = { r = 0.05, g = 0.82, b = 0.62 },
     tankHasAggroEnabled = false,
     tankHasAggroOverrideMobType = false,  -- on: overrides Mini-Boss/Caster (above priority step 7); off = stays low
@@ -285,7 +286,7 @@ local defaults = {
     textSlotTop = "enemyName",
     textSlotRight = "healthPercent",
     -- WoW Forever shows the level by default (retail leaves the slot empty).
-    textSlotLeft = (EllesmereUI.IS_FOREVER == true) and "level" or "none",
+    textSlotLeft = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "level" or "none",
     textSlotCenter = "none",
     textSlotBottomLeft = "none",
     textSlotBottomRight = "none",
@@ -301,7 +302,7 @@ local defaults = {
     -- The 8x3 base pip is reported as too small to read on Forever, where this is
     -- the target-side display rather than a second one. The Size slider (0.5 to
     -- 4.0) still overrides it.
-    classPowerScale = (EllesmereUI.IS_FOREVER == true) and 1.8 or 1.0,
+    classPowerScale = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 1.8 or 1.0,
     classPowerClassColors = true,
     classPowerCustomColor = { r = 1.00, g = 0.84, b = 0.30 },
     classPowerBgColor = { r = 0.082, g = 0.082, b = 0.082, a = 1.0 },
@@ -526,9 +527,9 @@ local defaults = {
     bottomSlotSize = 26,     bottomSlotXOffset = 0,   bottomSlotYOffset = 0,   bottomSlotRaiseStrata = false,
     -- Core Text Positions: slot-based size + XY offsets (WoW Forever: a larger
     -- top text, raised 3px; retail keeps 10 / 0)
-    textSlotTopSize = (EllesmereUI.IS_FOREVER == true) and 12 or 10,
+    textSlotTopSize = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 12 or 10,
     textSlotTopXOffset = 0,
-    textSlotTopYOffset = (EllesmereUI.IS_FOREVER == true) and 3 or 0,
+    textSlotTopYOffset = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 3 or 0,
     textSlotRightSize = 10,  textSlotRightXOffset = 0, textSlotRightYOffset = 0,
     textSlotLeftSize = 10,   textSlotLeftXOffset = 0,  textSlotLeftYOffset = 0,
     textSlotCenterSize = 10, textSlotCenterXOffset = 0, textSlotCenterYOffset = 0,
@@ -1392,7 +1393,9 @@ function ns.NP_ApplyBlizzBarArt(plate)
     -- stock fill does instead of painting over it. Seated per texture object
     -- (a status bar texture path swap mints a new fill object).
     local mask = plate._blizzBarMask
-    if not mask and ns.NP_AtlasOK(B.bar) then
+    -- Classic Era: its stock nameplate bar atlas has a different shape, and as a
+    -- mask it left only a thin strip of the fill visible (in-game report).
+    if not mask and not EllesmereUI.IS_CLASSIC_ERA and ns.NP_AtlasOK(B.bar) then
         mask = health:CreateMaskTexture()
         mask:SetAtlas(B.bar)
         mask:SetAllPoints(health)
@@ -1698,7 +1701,7 @@ function ns.NP_ForeverWatchLevels()
         return true
     end
     f:RegisterEvent("UNIT_LEVEL")
-    f:RegisterEvent("PLAYER_LEVEL_CHANGED")
+    EUI_SafeRegisterEvent(f, "PLAYER_LEVEL_CHANGED")
     if f:GetScript("OnEvent") then return true end
     f:SetScript("OnEvent", function(_, event, unit)
         if event == "PLAYER_LEVEL_CHANGED" then
@@ -3725,9 +3728,9 @@ do
             local watcher = CreateFrame("Frame")
             watcher:RegisterEvent("PLAYER_LOGIN")
             watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
-            watcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-            watcher:RegisterEvent("TRAIT_CONFIG_UPDATED")
-            watcher:RegisterEvent("PLAYER_TALENT_UPDATE")
+            EUI_SafeRegisterEvent(watcher, "PLAYER_SPECIALIZATION_CHANGED")
+            EUI_SafeRegisterEvent(watcher, "TRAIT_CONFIG_UPDATED")
+            EUI_SafeRegisterEvent(watcher, "PLAYER_TALENT_UPDATE")
             watcher:SetScript("OnEvent", function()
                 local new = Resolve()
                 if new == threshold then return end
@@ -4094,7 +4097,7 @@ end
 ns._npTptOn = false
 
 function ns.NP_RefreshThreatPctFlag()
-    ns._npTptOn = EllesmereUI.IS_FOREVER == true and p ~= nil and p.threatPctEnabled == true
+    ns._npTptOn = (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and p ~= nil and p.threatPctEnabled == true
 end
 
 function ns.EnsureThreatPctText(plate)
@@ -6016,7 +6019,7 @@ local function UpdateClassPowerOnPlate(plate)
         -- the previous target's count at the moment PLAYER_TARGET_CHANGED fires
         -- (measured on 1.60.1: up=3 while gcp=0 on the swap), with no later event
         -- to correct it. Blizzard's own classic ComboFrame reads GetComboPoints.
-        if EllesmereUI.IS_FOREVER == true and classPowerType == Enum.PowerType.ComboPoints
+        if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and classPowerType == Enum.PowerType.ComboPoints
            and GetComboPoints then
             cur = GetComboPoints("player", "target") or 0
         else
@@ -6364,9 +6367,9 @@ local function EnableClassPowerWatcher()
     if classPowerWatcher then return end  -- already active
     local info = CLASS_POWER_MAP[PLAYER_CLASS]
     -- Vanilla content has no specializations, so the spec-keyed entries above never
-    -- resolve on Forever, and the flat ones name resources that client does not
-    -- have. This is the whole set that exists there.
-    if EllesmereUI.IS_FOREVER == true then
+    -- resolve on Forever or Classic Era, and the flat ones name resources that client
+    -- does not have. This is the whole set that exists there.
+    if EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA then
         info = (PLAYER_CLASS == "ROGUE" or PLAYER_CLASS == "DRUID")
             and { Enum.PowerType.ComboPoints, 5 } or nil
     end
@@ -6382,9 +6385,9 @@ local function EnableClassPowerWatcher()
 
     classPowerType = info[1]
     classPowerMax = info[2]
-    -- Druid Resto: cat form required. Feral always shows. On Forever there are no
-    -- specs to tell them apart and combo points are cat-only for every druid.
-    if EllesmereUI.IS_FOREVER == true then
+    -- Druid Resto: cat form required. Feral always shows. On Forever and Classic Era
+    -- there are no specs to tell them apart and combo points are cat-only for every druid.
+    if EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA then
         classPowerFormReq = (PLAYER_CLASS == "DRUID") and (DRUID_CAT_FORM or 1) or nil
     else
         local specIdx = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization()
@@ -6404,7 +6407,7 @@ local function EnableClassPowerWatcher()
         end)
         classPowerWatcher:RegisterUnitEvent("UNIT_AURA", "player")
         classPowerWatcher:RegisterEvent("PLAYER_TARGET_CHANGED")
-        classPowerWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+        EUI_SafeRegisterEvent(classPowerWatcher, "PLAYER_SPECIALIZATION_CHANGED")
         -- Manual tracker events (Whirlwind, Bladestorm/Unhinged)
         -- so tracking works even without EllesmereUIResourceBars loaded.
         classPowerWatcher:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
@@ -6438,13 +6441,13 @@ local function EnableClassPowerWatcher()
         classPowerWatcher:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
         classPowerWatcher:RegisterUnitEvent("UNIT_MAXPOWER", "player")
         classPowerWatcher:RegisterEvent("PLAYER_TARGET_CHANGED")
-        classPowerWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+        EUI_SafeRegisterEvent(classPowerWatcher, "PLAYER_SPECIALIZATION_CHANGED")
         if classPowerFormReq then
             classPowerWatcher:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
         end
         -- Runes need their own event for per-rune cooldown changes
         if classPowerType == Enum.PowerType.Runes then
-            classPowerWatcher:RegisterEvent("RUNE_POWER_UPDATE")
+            EUI_SafeRegisterEvent(classPowerWatcher, "RUNE_POWER_UPDATE")
         end
         classPowerWatcher:SetScript("OnEvent", function(_, event, unit)
             if event == "PLAYER_SPECIALIZATION_CHANGED" then
@@ -7556,8 +7559,8 @@ local function HideBlizzardFrame(nameplate, unit)
     -- UnregisterAllEvents clears registrations only).
     uf:UnregisterAllEvents()
     uf:RegisterEvent("PLAYER_TARGET_CHANGED")
-    uf:RegisterEvent("PLAYER_SOFT_FRIEND_CHANGED")
-    uf:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+    EUI_SafeRegisterEvent(uf, "PLAYER_SOFT_FRIEND_CHANGED")
+    EUI_SafeRegisterEvent(uf, "PLAYER_SOFT_ENEMY_CHANGED")
     -- The cast bar is its own frame with its own registrations (we render our own). It lives
     -- at CastBarsContainer.castBar; the driver's SetUnit re-registers it on reacquisition.
     local blizzCastBar = uf.castBar or (uf.CastBarsContainer and uf.CastBarsContainer.castBar)
@@ -8402,7 +8405,7 @@ function NameplateFrame:SetUnit(unit, nameplate)
     HideBlizzardFrame(nameplate, unit)
     self:RegisterUnitEvent("UNIT_HEALTH", unit)
     self:RegisterUnitEvent("UNIT_MAXHEALTH", unit)
-    self:RegisterUnitEvent("UNIT_ABSORB_AMOUNT_CHANGED", unit)
+    EUI_SafeRegisterUnitEvent(self, "UNIT_ABSORB_AMOUNT_CHANGED", unit)
     self:RegisterUnitEvent("UNIT_NAME_UPDATE", unit)
     self:RegisterUnitEvent("UNIT_THREAT_LIST_UPDATE", unit)
     -- Target of Target text: its event only while a slot shows it.
@@ -8655,7 +8658,7 @@ function NameplateFrame:ClearUnit()
 end
 -- WoW Forever: no health number under 10,000 abbreviates (EllesmereUI_NumberFormat.lua).
 -- On ns, not a local: this chunk is near its 200-local cap.
-ns.AbbreviateNumbers = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
+ns.AbbreviateNumbers = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
 function NameplateFrame:UpdateHealthValues()
     local unit = self.unit
     if not unit then return end
@@ -10875,11 +10878,11 @@ do
     castDispatcher:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START")
     castDispatcher:RegisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE")
     castDispatcher:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
-    castDispatcher:RegisterEvent("UNIT_SPELLCAST_EMPOWER_START")
-    castDispatcher:RegisterEvent("UNIT_SPELLCAST_EMPOWER_UPDATE")
-    castDispatcher:RegisterEvent("UNIT_SPELLCAST_EMPOWER_STOP")
-    castDispatcher:RegisterEvent("UNIT_SPELLCAST_INTERRUPTIBLE")
-    castDispatcher:RegisterEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE")
+    EUI_SafeRegisterEvent(castDispatcher, "UNIT_SPELLCAST_EMPOWER_START")
+    EUI_SafeRegisterEvent(castDispatcher, "UNIT_SPELLCAST_EMPOWER_UPDATE")
+    EUI_SafeRegisterEvent(castDispatcher, "UNIT_SPELLCAST_EMPOWER_STOP")
+    EUI_SafeRegisterEvent(castDispatcher, "UNIT_SPELLCAST_INTERRUPTIBLE")
+    EUI_SafeRegisterEvent(castDispatcher, "UNIT_SPELLCAST_NOT_INTERRUPTIBLE")
     castDispatcher:SetScript("OnEvent", function(_, event, unit, ...)
         local plate = ns.plates[unit]
         if not plate then return end
@@ -10893,7 +10896,7 @@ local manager = CreateFrame("Frame")
 manager:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 manager:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 manager:RegisterEvent("PLAYER_TARGET_CHANGED")
-manager:RegisterEvent("PLAYER_FOCUS_CHANGED")
+EUI_SafeRegisterEvent(manager, "PLAYER_FOCUS_CHANGED")
 manager:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 manager:RegisterEvent("RAID_TARGET_UPDATE")
 manager:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -11021,14 +11024,14 @@ end
 
 factionFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 factionFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-factionFrame:RegisterEvent("PLAYER_DIFFICULTY_CHANGED")
-factionFrame:RegisterEvent("ROLE_CHANGED_INFORM")
+EUI_SafeRegisterEvent(factionFrame, "PLAYER_DIFFICULTY_CHANGED")
+EUI_SafeRegisterEvent(factionFrame, "ROLE_CHANGED_INFORM")
 factionFrame:RegisterEvent("PLAYER_ROLES_ASSIGNED")
 factionFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 -- The cached tank-role verdict is spec-derived for the player (effective
 -- role), so the player's own spec swap must refresh it; the event also fires
 -- for other units' spec updates, which change nothing here.
-factionFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+EUI_SafeRegisterEvent(factionFrame, "PLAYER_SPECIALIZATION_CHANGED")
 factionFrame:SetScript("OnEvent", function(_, event, unit)
     if event == "PLAYER_SPECIALIZATION_CHANGED" then
         -- Never fall through: the dispatch below keys watchers by unit token,
@@ -11091,7 +11094,7 @@ function ns._EnsureMouseoverTicker()
         if not UnitExists("mouseover") then
             if ns._mouseoverTicker then ns._mouseoverTicker:Cancel(); ns._mouseoverTicker = nil end
             ns._UpdateMouseover()
-            if IsMouseButtonDown() then manager:RegisterEvent("GLOBAL_MOUSE_UP") end
+            if IsMouseButtonDown() then EUI_SafeRegisterEvent(manager, "GLOBAL_MOUSE_UP") end
         end
     end)
 end
@@ -11331,7 +11334,7 @@ manager:SetScript("OnEvent", function(self, event, unit)
     elseif event == "UPDATE_MOUSEOVER_UNIT" then
         ns._UpdateMouseover()
     elseif event == "GLOBAL_MOUSE_UP" then
-        self:UnregisterEvent("GLOBAL_MOUSE_UP")
+        EUI_SafeUnregisterEvent(self, "GLOBAL_MOUSE_UP")
         ns._UpdateMouseover()
     elseif event == "RAID_TARGET_UPDATE" then
         for _, plate in pairs(ns.plates) do
@@ -11379,7 +11382,7 @@ do
                        and GetSpecializationInfo(specIndex) or nil
         -- WoW Forever: the class counts as each of its retail specs; the first
         -- one in class order that a preset is assigned to picks the preset.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             specID = EllesmereUI.ForeverClassSpec(nil, ns.NP_PresetHoldsSpec, p._specAssignments)
         end
         if not specID then return end
@@ -11479,7 +11482,7 @@ do
 
     -- Also handle spec changes that happen before the UI is ever opened
     local specLoginFrame = CreateFrame("Frame")
-    specLoginFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(specLoginFrame, "PLAYER_SPECIALIZATION_CHANGED")
     specLoginFrame:SetScript("OnEvent", function(_, event, unit)
         if unit ~= "player" then return end
         -- Re-read the profile reference: a spec swap may have changed the active

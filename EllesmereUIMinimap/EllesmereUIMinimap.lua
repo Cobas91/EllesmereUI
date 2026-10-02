@@ -1,4 +1,29 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+-- Classic Era: the retail minimap button art (UI-HUD-Minimap-*, UI-HUD-Calendar-*,
+-- Map-Filter-Button) does not exist there, which left only the black plates
+-- (in-game report). A missing atlas falls back to a vanilla icon of the same
+-- meaning; a present one is set as before. On EllesmereUI (no new file local:
+-- this chunk sits near the 200-local cap).
+function EllesmereUI._MinimapAtlas(tex, atlas)
+    if not (tex and atlas) then return end
+    if not EllesmereUI.IS_CLASSIC_ERA or (C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas)) then
+        tex:SetAtlas(atlas)
+        return
+    end
+    local path
+    if atlas:find("^UI%-HUD%-Minimap%-Tracking") then path = "Interface/Icons/INV_Misc_Spyglass_02"
+    elseif atlas:find("^UI%-HUD%-Calendar") then path = "Interface/Icons/INV_Misc_PocketWatch_01"
+    elseif atlas:find("^UI%-HUD%-Minimap%-Mail") then path = "Interface/Icons/INV_Letter_15"
+    elseif atlas:find("^UI%-HUD%-Minimap%-CraftingOrder") then path = "Interface/Icons/INV_Hammer_20"
+    elseif atlas:find("^Map%-Filter%-Button") then path = "Interface/Icons/INV_Misc_Gear_01"
+    elseif atlas:find("^housefinder_neighborhood%-friends") then path = "Interface/FriendsFrame/UI-Toast-FriendOnlineIcon"
+    end
+    if path then
+        tex:SetTexture(path)
+        tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    end
+end
 -------------------------------------------------------------------------------
 --  EllesmereUIMinimap.lua
 --  Custom minimap skin and layout for EllesmereUI.
@@ -796,7 +821,7 @@ local function CreateFlyoutToggle()
 
     local norm = btn:CreateTexture(nil, "ARTWORK")
     norm:SetAllPoints()
-    norm:SetAtlas("Map-Filter-Button")
+    EllesmereUI._MinimapAtlas(norm, "Map-Filter-Button")
     norm:SetDesaturated(true)
     norm:SetVertexColor(EG.r, EG.g, EG.b, 1)
     btn:SetNormalTexture(norm)
@@ -804,7 +829,7 @@ local function CreateFlyoutToggle()
 
     local pushed = btn:CreateTexture(nil, "ARTWORK")
     pushed:SetAllPoints()
-    pushed:SetAtlas("Map-Filter-Button-down")
+    EllesmereUI._MinimapAtlas(pushed, "Map-Filter-Button-down")
     pushed:SetDesaturated(true)
     pushed:SetVertexColor(EG.r, EG.g, EG.b, 1)
     btn:SetPushedTexture(pushed)
@@ -812,7 +837,7 @@ local function CreateFlyoutToggle()
 
     local hl = btn:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
-    hl:SetAtlas("Map-Filter-Button")
+    EllesmereUI._MinimapAtlas(hl, "Map-Filter-Button")
     hl:SetDesaturated(true)
     hl:SetVertexColor(EG.r, EG.g, EG.b, 1)
     hl:SetAlpha(0.3)
@@ -1455,7 +1480,7 @@ local function CreateIndicatorBtn(name, parent, upAtlas, overAtlas, downAtlas, o
         icon:SetPoint("TOPLEFT", btn, "TOPLEFT", inset, -inset)
         icon:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -inset, inset)
     end
-    if upAtlas then icon:SetAtlas(upAtlas) end
+    if upAtlas then EllesmereUI._MinimapAtlas(icon, upAtlas) end
     btn._icon = icon
     btn._upAtlas = upAtlas
     btn._overAtlas = overAtlas
@@ -1463,18 +1488,18 @@ local function CreateIndicatorBtn(name, parent, upAtlas, overAtlas, downAtlas, o
     btn._indicatorKey = name
 
     btn:SetScript("OnEnter", function(self)
-        if self._overAtlas and self._icon then self._icon:SetAtlas(self._overAtlas) end
+        if self._overAtlas and self._icon then EllesmereUI._MinimapAtlas(self._icon, self._overAtlas) end
     end)
     btn:SetScript("OnLeave", function(self)
-        if self._upAtlas and self._icon then self._icon:SetAtlas(self._upAtlas) end
+        if self._upAtlas and self._icon then EllesmereUI._MinimapAtlas(self._icon, self._upAtlas) end
     end)
     btn:SetScript("OnMouseDown", function(self)
-        if self._downAtlas and self._icon then self._icon:SetAtlas(self._downAtlas) end
+        if self._downAtlas and self._icon then EllesmereUI._MinimapAtlas(self._icon, self._downAtlas) end
     end)
     btn:SetScript("OnMouseUp", function(self)
         local over = self:IsMouseOver()
         local atlas = over and self._overAtlas or self._upAtlas
-        if atlas and self._icon then self._icon:SetAtlas(atlas) end
+        if atlas and self._icon then EllesmereUI._MinimapAtlas(self._icon, atlas) end
     end)
 
     if onClick then
@@ -2679,7 +2704,7 @@ local function GetCalendarLockoutEntries()
 end
 
 local function BuildCustomIndicators(minimap)
-    if _customIndicators.tracking then
+    if _customIndicators.tracking or _customIndicators._built then
         -- Re-apply accent to the friends icon: a later ApplyAll (e.g. PLAYER_ENTERING_WORLD, after
         -- theme resolution mutates ELLESMERE_GREEN) must override the create-once read below, since creation can race theme resolution (same pattern as CreateFlyoutToggle).
         local fi = _customIndicators.friends and _customIndicators.friends._icon
@@ -2756,6 +2781,15 @@ local function BuildCustomIndicators(minimap)
         HideCalendarTooltip()
         EllesmereUI.HideWidgetTooltip()
     end)
+
+    -- Classic Era has no minimap tracking menu and no calendar: both buttons
+    -- are dropped (every reader nil-guards them); _built keeps this a one-time pass.
+    if EllesmereUI.IS_CLASSIC_ERA then
+        _customIndicators.tracking:Hide()
+        _customIndicators.calendar:Hide()
+        _customIndicators.tracking, _customIndicators.calendar = nil, nil
+    end
+    _customIndicators._built = true
 
     -- Mail (informational: tooltip + hover atlas only)
     _customIndicators.mail = CreateIndicatorBtn("_mail", minimap,
@@ -2852,9 +2886,10 @@ local function BuildCustomIndicators(minimap)
     end -- not PadGamepadUI
 
     -- Great Vault + M+ Portal buttons: built once, anchored in LayoutIndicatorFrames.
-    -- Neither exists on WoW Forever (no vault, no keystone portals): the buttons are
-    -- never built there, every reader guards on nil, and the options drop their rows.
-    if not EllesmereUI.IS_FOREVER then
+    -- Neither exists on WoW Forever or Classic Era (no vault, no keystone portals):
+    -- the buttons are never built there, every reader guards on nil, and the
+    -- options drop their rows.
+    if not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
         _greatVaultBtn = CreateGreatVaultBtn(minimap)
         _portalBtn = CreatePortalBtn(minimap)
     end
@@ -3145,7 +3180,7 @@ local function LayoutIndicatorFrames(minimap, p, circleMode)
             ci.calendar._upAtlas = prefix .. "-Up"
             ci.calendar._overAtlas = prefix .. "-Mouseover"
             ci.calendar._downAtlas = prefix .. "-Down"
-            if ci.calendar._icon then ci.calendar._icon:SetAtlas(ci.calendar._upAtlas) end
+            if ci.calendar._icon then EllesmereUI._MinimapAtlas(ci.calendar._icon, ci.calendar._upAtlas) end
         end
     end
     ResizeIndicator(ci.calendar)
@@ -3656,8 +3691,8 @@ end
 
 -- Folio mode with legacy fallback: pre-dropdown data carries showOmniumFolio (default ON; only false is ever stored).
 local function GetOmniumFolioMode(mp)
-    -- No expansion landing page on WoW Forever: every folio path reads "never".
-    if EllesmereUI.IS_FOREVER then return "never" end
+    -- No expansion landing page on WoW Forever or Classic Era: every folio path reads "never".
+    if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then return "never" end
     if not mp then return "always" end
     if mp.omniumFolioMode then return mp.omniumFolioMode end
     if mp.showOmniumFolio == false then return "never" end
@@ -3822,9 +3857,9 @@ function EBS._HVRevealMapHover()
 end
 
 local function ApplyOmniumFolio()
-    -- No expansion landing page on WoW Forever: the button is left to
-    -- Blizzard entirely (its own refresh path errors there), no hooks either.
-    if EllesmereUI.IS_FOREVER then return end
+    -- No expansion landing page on WoW Forever or Classic Era: the button is left
+    -- to Blizzard entirely (its own refresh path errors there), no hooks either.
+    if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then return end
     local btn = _G.ExpansionLandingPageMinimapButton
     if not btn or not Minimap then return end
     local mp = EBS.db and EBS.db.profile and EBS.db.profile.minimap
@@ -4236,7 +4271,7 @@ EBS._ApplyForeverDiel = function(minimap, mapSize)
         local function Paint(isDay)
             disc:SetAtlas(isDay and "UI-HUD-Minimap-DayCycle" or "UI-HUD-Minimap-NightCycle", true)
         end
-        orb:RegisterEvent("DIEL_CYCLE_CHANGED")
+        EUI_SafeRegisterEvent(orb, "DIEL_CYCLE_CHANGED")
         orb:SetScript("OnEvent", function(_, _, isDay) Paint(isDay) end)
         Paint(C_DateAndTime.IsDayTime())
         d.foreverDiel = orb
@@ -4946,9 +4981,9 @@ local function ApplyMinimap()
             clockBg:RegisterForClicks("AnyUp")
             clockBg:SetScript("OnClick", function()
                 -- With the Great Vault hover tooltip assigned, clicking the clock opens the vault (same as the Great Vault button), not the clock config.
-                -- WoW Forever has no Great Vault: a saved "vault" reads as none there.
+                -- WoW Forever and Classic Era have no Great Vault: a saved "vault" reads as none there.
                 local mp = EBS.db and EBS.db.profile.minimap
-                if mp and mp.clockHoverTooltip == "vault" and not EllesmereUI.IS_FOREVER then
+                if mp and mp.clockHoverTooltip == "vault" and not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
                     EllesmereUI.ToggleGreatVault()
                     return
                 end
@@ -5015,7 +5050,7 @@ local function ApplyMinimap()
                 EBS._HVRevealMapHover()
                 local mp = EBS.db and EBS.db.profile.minimap
                 local mode = (mp and mp.clockHoverTooltip) or "none"
-                if EllesmereUI.IS_FOREVER and mode == "vault" then mode = "none" end
+                if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and mode == "vault" then mode = "none" end
                 if mode == "lockouts" then
                     if EllesmereUI.InProtectedInstance() then return end
                     local entries = GetCalendarLockoutEntries()
@@ -5256,7 +5291,7 @@ local function ApplyMinimap()
                 EBS._HVRevealMapHover()
                 local mp = EBS.db and EBS.db.profile.minimap
                 local mode = (mp and mp.fpsHoverTooltip) or "none"
-                if EllesmereUI.IS_FOREVER and mode == "vault" then mode = "none" end
+                if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and mode == "vault" then mode = "none" end
                 if mode == "lockouts" then
                     if EllesmereUI.InProtectedInstance() then return end
                     local entries = GetCalendarLockoutEntries()
@@ -5274,7 +5309,7 @@ local function ApplyMinimap()
             fpsBg:SetScript("OnMouseUp", function(_, button)
                 if button ~= "LeftButton" then return end
                 local mp = EBS.db and EBS.db.profile.minimap
-                if mp and mp.fpsHoverTooltip == "vault" and not EllesmereUI.IS_FOREVER then
+                if mp and mp.fpsHoverTooltip == "vault" and not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
                     EllesmereUI.ToggleGreatVault()
                 end
             end)
@@ -5292,9 +5327,9 @@ local function ApplyMinimap()
         fpsBg:SetScale(p.fpsScale or 1.0)
         _G._EBS_FpsBg = fpsBg
         -- Mouse only while a hover tooltip is assigned, so it never blocks map clicks
-        -- (WoW Forever reads a saved "vault" as none).
+        -- (WoW Forever and Classic Era read a saved "vault" as none).
         fpsBg:EnableMouse((p.fpsHoverTooltip or "none") ~= "none"
-            and not (EllesmereUI.IS_FOREVER and p.fpsHoverTooltip == "vault"))
+            and not ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and p.fpsHoverTooltip == "vault"))
         fpsBg:Show()
         fpsBg._updateNow()
     else
@@ -5350,16 +5385,18 @@ local function ApplyMinimap()
                     local _, _, _, h = GetDescColor(mp2)
                     hex = h
                 end
-                if diffID == 8 then
+                if diffID == 8 and not EllesmereUI.IS_CLASSIC_ERA then
                     -- Active keystone: key level after the colored M+
+                    -- (No Mythic+ on Classic Era; diffID 8 can't occur there anyway, but guard explicitly.)
                     if reactive then hex = "ff8000" end
                     local lvl = C_ChallengeMode and C_ChallengeMode.GetActiveKeystoneInfo
                         and C_ChallengeMode.GetActiveKeystoneInfo()
                     out:SetFormattedText("|cff%sM+|r%s", hex, (lvl and lvl > 0) and lvl or "")
                     return
                 end
-                if diffID == 208 then
+                if diffID == 208 and not EllesmereUI.IS_CLASSIC_ERA then
                     -- Delve: tier number from the scenario header widget
+                    -- (No Delves on Classic Era; diffID 208 can't occur there anyway, but guard explicitly.)
                     if reactive then hex = "c69b6d" end
                     local tier
                     local ok, info = pcall(C_UIWidgetManager.GetScenarioHeaderDelvesWidgetVisualizationInfo, 6183)
@@ -5393,11 +5430,11 @@ local function ApplyMinimap()
         fs:Show()
         diffTextFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
         diffTextFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-        diffTextFrame:RegisterEvent("PLAYER_DIFFICULTY_CHANGED")
+        EUI_SafeRegisterEvent(diffTextFrame, "PLAYER_DIFFICULTY_CHANGED")
         diffTextFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
-        diffTextFrame:RegisterEvent("CHALLENGE_MODE_START")
-        diffTextFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
-        diffTextFrame:RegisterEvent("CHALLENGE_MODE_RESET")
+        EUI_SafeRegisterEvent(diffTextFrame, "CHALLENGE_MODE_START")
+        EUI_SafeRegisterEvent(diffTextFrame, "CHALLENGE_MODE_COMPLETED")
+        EUI_SafeRegisterEvent(diffTextFrame, "CHALLENGE_MODE_RESET")
         diffTextFrame._update(diffTextFrame)
     elseif diffTextFrame then
         diffTextFrame:UnregisterAllEvents()
@@ -5701,7 +5738,7 @@ do
         menuFrame:EnableMouse(true)
 
         -- Close when clicking elsewhere
-        menuFrame:RegisterEvent("GLOBAL_MOUSE_DOWN")
+        EUI_SafeRegisterEvent(menuFrame, "GLOBAL_MOUSE_DOWN")
         menuFrame:SetScript("OnEvent", function(self, event)
             if event == "GLOBAL_MOUSE_DOWN" and menuOpen then
                 if not self:IsMouseOver() then SetMenuVisible(false) end

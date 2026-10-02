@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_Nameplates_AuraContainers.lua
 -- 12.1 aura containers for nameplates. Three engine-driven groups per
 -- plate (player debuffs, enemy important buffs, crowd control), rendered
@@ -648,7 +649,7 @@ local NPF_SUNDER_IDS = {
 }
 local _, playerClass = UnitClass("player")
 local function NPF_SunderOn()
-    return EllesmereUI.IS_FOREVER and playerClass == "WARRIOR"
+    return (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and playerClass == "WARRIOR"
         and PVal("showSunderArmor") == true
 end
 

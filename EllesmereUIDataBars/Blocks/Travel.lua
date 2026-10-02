@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- Blocks\Travel.lua
 -- Travel block factory (hearthstones and M+ teleports).
 
@@ -299,9 +300,9 @@ ns.BlockFactories.travel = function(blockCfg, slot, content, barCtx)
         end
 
         -- Show M+ Portals: nil reads as shown (no migration needed). OFF skips the section and its spell-resolution work entirely.
-        -- WoW Forever has no Mythic+ teleports: the section never builds there.
+        -- WoW Forever and Classic Era have no Mythic+ teleports: the section never builds there.
         _mythicLineCount = 0
-        if not EllesmereUI.IS_FOREVER and D().clickableTeleports ~= false then
+        if not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA and D().clickableTeleports ~= false then
             for _, entry in ipairs(SEASON_TELEPORTS) do
                 local spellId = TravelResolveMythicId(entry.spellIds)
                 if spellId then

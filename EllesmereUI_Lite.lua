@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 --------------------------------------------------------------------------------
 --  EllesmereUI_Lite.lua
 --  Lightweight replacement for AceAddon-3.0, AceEvent-3.0, and AceDB-3.0
@@ -16,9 +17,25 @@ EllesmereUI.Lite = EUILite
 -- that vanilla lacks gates on this, never on WOW_PROJECT_ID (Forever is
 -- classed as mainline on purpose).
 EllesmereUI.IS_FOREVER = (EUI_CLIENT_FOREVER == true)
--- Global cooldown reference spell: Forever reports nothing on 61304 and uses
--- Classic's 29515.
-EllesmereUI.GCD_SPELL = EllesmereUI.IS_FOREVER and 29515 or 61304
+
+-- WoW Classic Era (this ported build's target): stamped by
+-- EllesmereUI_ClientGate.lua / confirmed by EllesmereUI_ClassicCompat.lua.
+-- Deliberately kept SEPARATE from IS_FOREVER rather than folded into it:
+-- IS_FOREVER gates ~600 call sites across the suite, most of them Forever
+-- BRANDING/content (its own theme name, its own hidden-addon list, its own
+-- icon swaps), not "no specializations". Aliasing the two would silently
+-- paint Forever-exclusive content onto Classic Era. Each module's own port
+-- pass decides, call site by call site, whether a given IS_FOREVER check is
+-- really about the absence of specializations/talents (in which case it
+-- adds `or EllesmereUI.IS_CLASSIC_ERA`) or genuinely Forever-only (left
+-- untouched). The ClassicCompat namespace stubs (GetSpecialization() etc.
+-- returning nil/0) are the real safety net for the spec-related half of
+-- those sites even where no explicit IS_CLASSIC_ERA check gets added.
+EllesmereUI.IS_CLASSIC_ERA = (EUI_CLIENT_CLASSIC_ERA == true) or (EllesmereUI_IS_CLASSIC_ERA == true)
+
+-- Global cooldown reference spell: Forever and Classic Era both report
+-- nothing on retail's 61304 and use Classic's 29515 (Honorless Target).
+EllesmereUI.GCD_SPELL = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and 29515 or 61304
 
 -- The options-panel scale is exposed as a fixed-step dropdown ("EUI Options
 -- Panel Scale"), NOT a free slider, and its getValue matches exact percentages
@@ -152,7 +169,7 @@ function EUILite._RegisterEvent(self, eventname, callback)
         end
     end
     f._handlers[eventname] = handler
-    f:RegisterEvent(eventname)
+    EUI_SafeRegisterEvent(f, eventname)
 end
 
 --- Unregister a Blizzard event.
@@ -160,7 +177,7 @@ function EUILite._UnregisterEvent(self, eventname)
     local f = self._eventFrame
     if not f then return end
     f._handlers[eventname] = nil
-    f:UnregisterEvent(eventname)
+    EUI_SafeUnregisterEvent(f, eventname)
 end
 
 --------------------------------------------------------------------------------

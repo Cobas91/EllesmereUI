@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI__General_Options.lua -- Global Settings module (CVar-based settings
 --  shared by all EllesmereUI addons).
@@ -45,7 +46,7 @@ function EllesmereUI.RunCDMSpellExportFlow(activeName, exportFn)
             and EllesmereUIDB.spellAssignments.profiles
             and EllesmereUIDB.spellAssignments.profiles[activeName]
             and EllesmereUIDB.spellAssignments.profiles[activeName].specProfiles
-        local n = EllesmereUI.IS_FOREVER and 0 or ((GetNumSpecializations and GetNumSpecializations()) or 0)
+        local n = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and 0 or ((GetNumSpecializations and GetNumSpecializations()) or 0)
         for i = 1, n do
             local specID = GetSpecializationInfo and GetSpecializationInfo(i)
             if specID then
@@ -58,7 +59,7 @@ function EllesmereUI.RunCDMSpellExportFlow(activeName, exportFn)
             end
         end
         -- WoW Forever: one row, the store key the player's class uses.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local id = EllesmereUI.ForeverClassSpec(nil, EllesmereUI.SpecHasStringEntry, sp or {}, true)
             if id then
                 local key = tostring(id)
@@ -258,7 +259,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Raid Frames",
                 title  = "Missing Buffs Choices",
                 desc   = "Missing Buffs now covers only the buffs you can cast, and its cog picks which ones, Thorns and Paladin Blessings included (all on by default)",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIRaidFrames", page = "Frames",
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIRaidFrames", page = "Frames",
                            section = "INDICATORS", highlight = "Missing Buffs" } or nil,
             },
             {
@@ -328,7 +329,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Raid Frames",
                 title  = "Missing Buffs",
                 desc   = "Raid and party frames show a glowing Fortitude, Mark of the Wild or Spirit icon on anyone missing it while your group can cast it",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIRaidFrames", page = "Frames",
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIRaidFrames", page = "Frames",
                            section = "INDICATORS", highlight = "Missing Buffs" } or nil,
             },
         },
@@ -391,7 +392,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Raid Frames",
                 title  = "Hide Groups 5-8 in Mythic",
                 desc   = "A Show Groups option hides groups 5-8 inside a Mythic raid, where only groups 1-4 take part",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIRaidFrames", page = "Frames",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIRaidFrames", page = "Frames",
                            section = "LAYOUT", highlight = "Show Groups" } or nil,
             },
             {
@@ -400,7 +401,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Raid Frames",
                 title  = "Starter Buff Indicators",
                 desc   = "Defensives, Externals and Consumables in the center, your own core healing buffs top right",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIRaidFrames", page = "Buff Manager" } or nil,
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIRaidFrames", page = "Buff Manager" } or nil,
             },
             {
                 -- The Resource Bars Power Bar row (Unit Frames has the same dropdown).
@@ -408,7 +409,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Resource Bars & Unit Frames",
                 title  = "Regen Ticks",
                 desc   = "Mana Regen Spark can keep sweeping every 2 seconds while your mana regenerates",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIResourceBars", page = "Class, Power and Health Bars",
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIResourceBars", page = "Class, Power and Health Bars",
                            section = "POWER BAR", highlight = "Mana Regen Spark" } or nil,
             },
             {
@@ -452,7 +453,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Unit Frames",
                 title  = "Mana + Form Power",
                 desc   = "Druids can keep Mana on the power bar with Energy or Rage in a second bar",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIUnitFrames", page = "Main Frames",
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIUnitFrames", page = "Main Frames",
                            section = "POWER BAR", highlight = "Power Type",
                            preSelect = function() EllesmereUI._setUnitFrameUnit("player"); EllesmereUI._pendingUnitSelect = "player" end } or nil,
             },
@@ -499,7 +500,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Cooldown Manager",
                 title  = "Rotation Assist Icon",
                 desc   = "A movable icon shows Blizzard's recommended next ability with its keybind and an optional GCD swipe. It needs Blizzard's Assisted Highlight turned on.",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUICooldownManager", page = "Rotation Assist Icon",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUICooldownManager", page = "Rotation Assist Icon",
                            section = "ROTATION ASSIST ICON", highlight = "Show Rotation Assist Icon" } or nil,
             },
         },
@@ -527,14 +528,14 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Blizz UI Enhanced",
                 title  = "Season Panel",
                 desc   = "The Character Sheet shows an Omnium Folio shortcut in Midnight seasons (on by default), with an optional Great Vault shortcut",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIBlizzardSkin", page = "Blizzard Window Skins",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIBlizzardSkin", page = "Blizzard Window Skins",
                            section = "CORE OPTIONS", highlight = "Season Panel" } or nil,
             },
             {
                 module = "Blizz UI Enhanced",
                 title  = "Hide Slot Flyout Arrows",
                 desc   = "The Character Sheet can hide the arrows beside its equipment slots; the gear flyouts keep working",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIBlizzardSkin", page = "Blizzard Window Skins",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIBlizzardSkin", page = "Blizzard Window Skins",
                            section = "CORE OPTIONS", highlight = "Hide Slot Flyout Arrows" } or nil,
             },
             {
@@ -565,7 +566,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Friends",
                 title  = "Window Skin Look",
                 desc   = "The friends window's frame, border, tabs and search box follow the Blizzard Window Skins style (Friends List card)",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIBlizzardSkin", page = "Blizzard Window Skins" } or nil,
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIBlizzardSkin", page = "Blizzard Window Skins" } or nil,
             },
             {
                 module = "General",
@@ -592,7 +593,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Mythic+ Tools",
                 title  = "Forces Bar Height",
                 desc   = "The enemy forces bar can have its own height, and the Mythic+ Timer settings are regrouped so each one sits with the bar it changes",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIMythicTimer", page = "Mythic+ Timer",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIMythicTimer", page = "Mythic+ Timer",
                            section = "FORCES", highlight = "Forces Bar Height" } or nil,
             },
             {
@@ -616,7 +617,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "QoL",
                 title  = "LFG Reminder for Group Leaders",
                 desc   = "The LFG Reminder also shows for the leader when listing a group, and again only if the listed dungeon changes",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIQoL", page = "QoL",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIQoL", page = "QoL",
                            section = "LFG REMINDER", highlight = "Enable LFG Reminder" } or nil,
             },
             {
@@ -647,7 +648,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Resource Bars",
                 title  = "Mana Bar while Shapeshifted",
                 desc   = "Druids can show a thin mana bar with the Power Bar in Bear and Cat Form, with its own position, size and text",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIResourceBars", page = "Class, Power and Health Bars",
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIResourceBars", page = "Class, Power and Health Bars",
                            section = "POWER BAR", highlight = "Mana Bar while Shapeshifted" } or nil,
             },
             {
@@ -655,7 +656,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Resource Bars",
                 title  = "Spell Cost Prediction",
                 desc   = "The Power Bar can shade the mana your current cast will spend, like the Unit Frames power bar",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIResourceBars", page = "Class, Power and Health Bars",
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIResourceBars", page = "Class, Power and Health Bars",
                            section = "POWER BAR", highlight = "Spell Cost Prediction" } or nil,
             },
             {
@@ -766,7 +767,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Blizz UI Enhanced",
                 title  = "Skyriding HUD Styles",
                 desc   = "Blizzard Style or Classic WoW UI from the Style page, Classic Gems vigor, hideable parts and a full-charge sound",
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIBlizzardSkin", page = "Dragon Riding",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIBlizzardSkin", page = "Dragon Riding",
                            section = "GENERAL", highlight = "Vigor Style" } or nil,
             },
             {
@@ -876,7 +877,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 module = "Resource Bars & Unit Frames",
                 title  = "Druid Power Type",
                 desc   = "Druids can keep the power bar on Mana in Bear and Cat Form",
-                nav    = EllesmereUI.IS_FOREVER and { module = "EllesmereUIUnitFrames", page = "Main Frames",
+                nav    = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { module = "EllesmereUIUnitFrames", page = "Main Frames",
                            section = "POWER BAR", highlight = "Power Type",
                            preSelect = function() EllesmereUI._setUnitFrameUnit("player"); EllesmereUI._pendingUnitSelect = "player" end } or nil,
             },
@@ -1236,7 +1237,7 @@ EllesmereUI._WHATSNEW_PATCHES = {
                 desc   = "Battle Res and Bloodlust icons grey out with no charges or while Sated; on by default, with an off switch in each cog",
                 -- The Battle Res section is not built on WoW Forever:
                 -- clickable on retail, a static row there.
-                nav    = (not EllesmereUI.IS_FOREVER) and { module = "EllesmereUIQoL", page = "QoL",
+                nav    = (not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) and { module = "EllesmereUIQoL", page = "QoL",
                            section = "BATTLE RES", highlight = "Display Style" } or nil,
             },
             {

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBars_DataBars.lua
 --
@@ -544,8 +545,8 @@ local function CreateRepBar()
     evFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     evFrame:RegisterEvent("QUEST_FINISHED")
     if C_MajorFactions then
-        evFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
-        evFrame:RegisterEvent("MAJOR_FACTION_UNLOCKED")
+        EUI_SafeRegisterEvent(evFrame, "MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
+        EUI_SafeRegisterEvent(evFrame, "MAJOR_FACTION_UNLOCKED")
     end
     evFrame:SetScript("OnEvent", UpdateRepBar)
 
@@ -564,7 +565,13 @@ end
 -- Block-scoped + ns export: the file-scope local budget is nearly at the
 -- Lua 5.1 200 cap. WoW Forever has no housing: there the block never runs,
 -- so no bar is built, nothing registers and ns._CreateFavorBar stays nil.
-if not EllesmereUI.IS_FOREVER then
+-- Classic Era has no player-housing concept at all either (C_Housing/
+-- C_HouseEditor are Midnight 12.0-only and didn't even exist when this
+-- suite's retail version shipped) -- excluded the same way rather than
+-- trusting the neutral stub, since a truthy-but-inert stub FUNCTION on
+-- C_Housing.GetPlayerOwnedHouses would otherwise pass the "does housing
+-- exist" check below and let a user un-hide a bar that can never populate.
+if not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
 local favorState  -- { level, displayLevel, favor, needed } from the last payload
 local favorEv, favorArmed
 local ArmFavorEvents  -- forward: mutual recursion with UpdateFavorBar
@@ -664,8 +671,8 @@ ArmFavorEvents = function()
             favorEv:SetScript("OnEvent", OnFavorEvent)
         end
         favorEv:RegisterEvent("PLAYER_ENTERING_WORLD")
-        favorEv:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
-        favorEv:RegisterEvent("HOUSE_LEVEL_FAVOR_UPDATED")
+        EUI_SafeRegisterEvent(favorEv, "PLAYER_HOUSE_LIST_UPDATED")
+        EUI_SafeRegisterEvent(favorEv, "HOUSE_LEVEL_FAVOR_UPDATED")
         -- Kick the async chain now; if inside blocked content the next
         -- world-enter re-kicks instead.
         if not FavorBlocked() then
@@ -707,7 +714,7 @@ local function CreateFavorBar()
 end
 
 ns._CreateFavorBar = CreateFavorBar
-end -- not IS_FOREVER
+end -- not IS_FOREVER and not IS_CLASSIC_ERA
 
 -------------------------------------------------------------------------------
 --  Register Data Bars with Unlock Mode: same pattern as action bars and

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIResourceBars.lua
 --  Health bar, primary resource bar (mana/rage/energy/etc), secondary
@@ -324,7 +325,7 @@ local function GetPrimaryPowerType()
     -- WoW Forever: the class table below is retail's (hunters use mana
     -- there, not Focus), so ask the client what the player uses. Covers
     -- every class and druid forms with no second table to maintain.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         -- Druid "Power Type: Mana" keeps Mana in every form. Its own string
         -- key (no specs there), so it never meets the spec IDs keyed below.
         local pp = ERB.db and ERB.db.profile and ERB.db.profile.primary
@@ -499,19 +500,19 @@ local function GetSecondaryResource()
     local _, classFile = UnitClass("player")
     local spec = GetSpecialization()
     local form = GetShapeshiftFormID()
-    -- WoW Forever: combo points are the only class resource there (Rogue, and
+    -- WoW Forever and Classic Era: combo points are the only class resource there (Rogue, and
     -- Druid in Cat Form); every other class has none.
-    if EllesmereUI.IS_FOREVER == true and classFile ~= "ROGUE" and not (classFile == "DRUID" and form == 1) then return nil end
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA) and classFile ~= "ROGUE" and not (classFile == "DRUID" and form == 1) then return nil end
 
     if classFile == "PALADIN" then
         local mx = UnitPowerMax("player", PT.HOLY_POWER)
         return { power = PT.HOLY_POWER, max = (not issecretvalue or not issecretvalue(mx)) and mx or 5, type = "points" }
     elseif classFile == "ROGUE" then
         local mx = UnitPowerMax("player", PT.COMBO)
-        -- onTarget: WoW Forever keeps combo points on the target, so the count is
+        -- onTarget: WoW Forever and Classic Era keep combo points on the target, so the count is
         -- read with GetComboPoints and repainted on a target swap.
         return { power = PT.COMBO, max = (not issecretvalue or not issecretvalue(mx)) and mx or 5, type = "points",
-                 onTarget = (EllesmereUI.IS_FOREVER == true and GetComboPoints ~= nil) or nil }
+                 onTarget = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA) and GetComboPoints ~= nil) or nil }
     elseif classFile == "DRUID" and spec == 3 and form == 5
            and ERB.db and ERB.db.profile and ERB.db.profile.secondary
            and ERB.db.profile.secondary.guardianIronfurBar then
@@ -523,7 +524,7 @@ local function GetSecondaryResource()
     elseif classFile == "DRUID" and form == 1 then
         local mx = UnitPowerMax("player", PT.COMBO)
         return { power = PT.COMBO, max = (not issecretvalue or not issecretvalue(mx)) and mx or 5, type = "points",
-                 onTarget = (EllesmereUI.IS_FOREVER == true and GetComboPoints ~= nil) or nil }
+                 onTarget = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA) and GetComboPoints ~= nil) or nil }
     elseif classFile == "DRUID" and spec == 1 then
         -- Balance: Astral Power as a class resource bar (like Elemental maelstrom)
         local mx = UnitPowerMax("player", PT.LUNAR_POWER)
@@ -681,7 +682,7 @@ local function BuildBarTypeSpecMap()
     -- The spec positions below are retail's: WoW Forever's specs are its
     -- vanilla talent trees, none of which has these resources, so the map
     -- stays empty there.
-    if EllesmereUI.IS_FOREVER then return end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
     for classID = 1, GetNumClasses() do
         local _, classFile = GetClassInfo(classID)
         if classFile then
@@ -726,7 +727,7 @@ local _talentGateCache = {}   -- gate spellID -> bool
 local function InvalidateThresholdCaches()
     _thrSpecID = nil
     wipe(_talentGateCache)
-    if EllesmereUI.IS_FOREVER and ns._fvThrPick then wipe(ns._fvThrPick) end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and ns._fvThrPick then wipe(ns._fvThrPick) end
 end
 ns.InvalidateThresholdCaches = InvalidateThresholdCaches
 
@@ -830,8 +831,8 @@ ResolveThresholdSpecEntry = function(sp)
     -- runs as the spec ns.ForeverThresholdSpec picks (none named by a live
     -- card: the class's first spec, or no spec for a Druid's Class Resource,
     -- either way leaving the All Specs tiers 3 and 4).
-    if EllesmereUI.IS_FOREVER then specID = ns.ForeverThresholdSpec(entries) end
-    if not specID and not EllesmereUI.IS_FOREVER then return nil end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then specID = ns.ForeverThresholdSpec(entries) end
+    if not specID and not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return nil end
 
     local specPlain, allTalent, allPlain
     for _, entry in ipairs(entries) do
@@ -1183,7 +1184,7 @@ local DEFAULTS = {
         },
         primary = {
             -- Off by default on WoW Forever (vanilla content), on everywhere else.
-            enabled     = (EllesmereUI.IS_FOREVER ~= true),
+            enabled     = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) ~= true),
             smoothBars  = false,
             width       = 214,
             height      = 14,
@@ -1261,7 +1262,7 @@ local DEFAULTS = {
             -- (EUI_ResourceBars_ForeverDruidMana.lua). Exists only on Forever,
             -- so retail profiles stay unchanged. gap: space between the two
             -- bars (not used Inside); the text keys mirror the Power Bar's own.
-            foreverDruidMana = (EllesmereUI.IS_FOREVER == true) and {
+            foreverDruidMana = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and {
                 enabled     = false,
                 position    = "below",  -- "below","above","inside"
                 gap         = 2,
@@ -1280,7 +1281,7 @@ local DEFAULTS = {
         },
         secondary = {
             -- Off by default on WoW Forever (vanilla content), on everywhere else.
-            enabled     = (EllesmereUI.IS_FOREVER ~= true),
+            enabled     = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) ~= true),
             smoothBars  = false,
             pipWidth    = 214,
             pipHeight   = 20,
@@ -4398,7 +4399,7 @@ end
 -- WoW Forever: no health/power number under 10,000 abbreviates
 -- (EllesmereUI_NumberFormat.lua). On ns, not a local: this chunk is near its
 -- 200-local cap; the druid mana bar file reads it too.
-ns.AbbreviateNumbers = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
+ns.AbbreviateNumbers = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
 local function UpdateHealthBar()
     if not healthBar or not healthBar:IsShown() then return end
     local hp = _G._ERB_ResolveHealthCfg()
@@ -7166,11 +7167,11 @@ function ns.ArmTick()
         if want then
             ERB:RegisterEvent("SPELL_UPDATE_USABLE", ns.SpenderEvent)
             ERB:RegisterEvent("SPELL_UPDATE_COOLDOWN", ns.SpenderEvent)
-            ERB:RegisterEvent("SPELL_UPDATE_ICON", ns.SpenderEvent)
+            EUI_SafeRegisterEvent(ERB, "SPELL_UPDATE_ICON", ns.SpenderEvent)
         else
             ERB:UnregisterEvent("SPELL_UPDATE_USABLE")
             ERB:UnregisterEvent("SPELL_UPDATE_COOLDOWN")
-            ERB:UnregisterEvent("SPELL_UPDATE_ICON")
+            EUI_SafeUnregisterEvent(ERB, "SPELL_UPDATE_ICON")
             ns.SpenderDisarm()
         end
     end
@@ -10817,7 +10818,7 @@ BuildGCDBar = function()
     gcdBarFrame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
     gcdBarFrame:RegisterUnitEvent("UNIT_SPELLCAST_STOP", "player")
     gcdBarFrame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
-    gcdBarFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_START", "player")
+    EUI_SafeRegisterUnitEvent(gcdBarFrame, "UNIT_SPELLCAST_EMPOWER_START", "player")
 
     -- Size (orientation swaps width/height for vertical) + position
     local ori = g.orientation or "HORIZONTAL"
@@ -11625,7 +11626,7 @@ local ScheduleSpecResolve
 ScheduleSpecResolve = function()
     -- WoW Forever: the GetSpecialization alias above always reads nil there, so
     -- no retry could ever succeed; nothing is armed.
-    if EllesmereUI.IS_FOREVER then return end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
     if GetSpecialization() then _specResolveTries = 0; return end
     if _specResolveTries >= 40 then return end   -- ~20s, then stop rather than spin
     _specResolveTries = _specResolveTries + 1
@@ -12029,32 +12030,32 @@ function ERB:OnEnable()
     local eventFrame = _erbEventFrame
     eventFrame:RegisterUnitEvent("UNIT_HEALTH", "player")
     eventFrame:RegisterUnitEvent("UNIT_MAXHEALTH", "player")
-    eventFrame:RegisterUnitEvent("UNIT_MAX_HEALTH_MODIFIERS_CHANGED", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_MAX_HEALTH_MODIFIERS_CHANGED", "player")
     eventFrame:RegisterUnitEvent("UNIT_POWER_FREQUENT", "player")
     eventFrame:RegisterUnitEvent("UNIT_MAXPOWER", "player")
-    eventFrame:RegisterEvent("RUNE_POWER_UPDATE")
+    EUI_SafeRegisterEvent(eventFrame, "RUNE_POWER_UPDATE")
     eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
     eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
-    eventFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
-    eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-    eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
-    eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
+    EUI_SafeRegisterEvent(eventFrame, "ACTIVE_TALENT_GROUP_CHANGED")
+    EUI_SafeRegisterEvent(eventFrame, "PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(eventFrame, "TRAIT_CONFIG_UPDATED")
+    EUI_SafeRegisterEvent(eventFrame, "PLAYER_TALENT_UPDATE")
     eventFrame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
     -- Visibility option events
-    eventFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-    eventFrame:RegisterEvent("PLAYER_CAN_GLIDE_CHANGED")
+    EUI_SafeRegisterEvent(eventFrame, "PLAYER_MOUNT_DISPLAY_CHANGED")
+    EUI_SafeRegisterEvent(eventFrame, "PLAYER_CAN_GLIDE_CHANGED")
     -- Resting: IsResting() has no dedicated poll, so without this the Resting
     -- axis only re-evaluated when some unrelated event above happened to fire.
     eventFrame:RegisterEvent("PLAYER_UPDATE_RESTING")
     -- Vehicle edges for the In Vehicle axis (player-filtered; same reasoning).
-    eventFrame:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-    eventFrame:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_ENTERED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_EXITED_VEHICLE", "player")
     -- Airborne edge for the dragonriding visibility modes (probed at load
     -- in EllesmereUI_Visibility.lua; absent = the checklist items lock)
     if EllesmereUI._hasGlidingEvent then
-        eventFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
+        EUI_SafeRegisterEvent(eventFrame, "PLAYER_IS_GLIDING_CHANGED")
     end
 
     -- Mouseover hover-reveal: one proxy per bar registered with the shared poll. Plain
@@ -12099,7 +12100,7 @@ function ERB:OnEnable()
     end
     eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     eventFrame:RegisterUnitEvent("UNIT_AURA", "player")
-    eventFrame:RegisterUnitEvent("UNIT_ABSORB_AMOUNT_CHANGED", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_ABSORB_AMOUNT_CHANGED", "player")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
     eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_DELAYED", "player")
@@ -12110,12 +12111,12 @@ function ERB:OnEnable()
     eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
     eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", "player")
     eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
-    eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_START", "player")
-    eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
-    eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_UPDATE", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_SPELLCAST_EMPOWER_START", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_SPELLCAST_EMPOWER_STOP", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_SPELLCAST_EMPOWER_UPDATE", "player")
     eventFrame:RegisterEvent("PLAYER_DEAD")
     eventFrame:RegisterEvent("PLAYER_ALIVE")
-    eventFrame:RegisterUnitEvent("UNIT_POWER_POINT_CHARGE", "player")
+    EUI_SafeRegisterUnitEvent(eventFrame, "UNIT_POWER_POINT_CHARGE", "player")
     -- Arm the shared tick after every event: any of them can start something
     -- animating (value change, cast start, GCD, spec swap, form change), and
     -- working out which ones can't is exactly the cleverness that eventually

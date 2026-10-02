@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_GlobalSearch.lua
 --  Unified fuzzy search across every registered EllesmereUI sub-addon's
@@ -1078,8 +1079,8 @@ local function EnsureSearchUI()
             popup:Hide()
         end
     end)
-    popup:SetScript("OnShow", function() clickOff:RegisterEvent("GLOBAL_MOUSE_DOWN") end)
-    popup:SetScript("OnHide", function() clickOff:UnregisterEvent("GLOBAL_MOUSE_DOWN") end)
+    popup:SetScript("OnShow", function() EUI_SafeRegisterEvent(clickOff, "GLOBAL_MOUSE_DOWN") end)
+    popup:SetScript("OnHide", function() EUI_SafeUnregisterEvent(clickOff, "GLOBAL_MOUSE_DOWN") end)
 end
 
 -------------------------------------------------------------------------------

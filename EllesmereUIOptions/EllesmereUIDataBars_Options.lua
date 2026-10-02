@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIDataBars_Options.lua
 --  The "DataBars" options page for the multi-bar engine.
@@ -1397,6 +1398,11 @@ initFrame:SetScript("OnEvent", function(self)
             local hlA = DDS.ITEM_HL_A
             local mH = 4
             for _, t in ipairs(ns.BLOCK_TYPES) do
+                -- Classic Era: "greatvault" stays in BLOCK_TYPES (the runtime
+                -- module only strips it from the list on WoW Forever), but it
+                -- registers no factory here either (Mythic+ weekly vault has
+                -- no Classic Era equivalent) -- don't offer it in the add menu.
+                if not (t.key == "greatvault" and EllesmereUI.IS_CLASSIC_ERA) then
                 local item = CreateFrame("Button", nil, menu)
                 item:SetHeight(ITEM_H)
                 item:SetPoint("TOPLEFT", menu, "TOPLEFT", 1, -mH)
@@ -1452,6 +1458,7 @@ initFrame:SetScript("OnEvent", function(self)
                     end
                 end)
                 mH = mH + ITEM_H
+                end
             end
             menu:SetHeight(mH + 4)
             menu:SetScript("OnUpdate", function(m)
@@ -2024,7 +2031,7 @@ initFrame:SetScript("OnEvent", function(self)
         --  One section per block
         -------------------------------------------------------------------
         local blocks = cfg.blocks
-        if EllesmereUI.IS_FOREVER then
+        if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
             -- Hidden blocks get no section (see BlockHidden); the rest keep
             -- bar order.
             local shown = {}
@@ -2623,7 +2630,7 @@ initFrame:SetScript("OnEvent", function(self)
                 -- Gold / travel: a type row rides the Icon Color row's
                 -- otherwise-empty right slot instead of trailing alone below.
                 local iconRowRight = { type = "label", text = "" }
-                if b.type == "travel" and not EllesmereUI.IS_FOREVER then
+                if b.type == "travel" and not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
                     -- Default ON (nil = shown), so this can't use MkToggle's
                     -- `== true` read.
                     iconRowRight = { type = "toggle", text = "Show M+ Portals",
@@ -2712,7 +2719,7 @@ initFrame:SetScript("OnEvent", function(self)
                           Apply()
                       end }
                 end
-                if b.type == "travel" and EllesmereUI.IS_FOREVER then
+                if b.type == "travel" and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                     travelIconCfg = iconColorCfg
                 else
                     _, h = W:DualRow(parent, y,
@@ -3543,7 +3550,7 @@ initFrame:SetScript("OnEvent", function(self)
                 }
                 -- WoW Forever has separate Talents, Professions and Legacy
                 -- buttons, right after the Spellbook.
-                if EllesmereUI.IS_FOREVER then
+                if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
                     for i, el in ipairs(MM_ELEMENTS) do
                         if el.key == "spell" then
                             table.insert(MM_ELEMENTS, i + 1, { key = "talent", label = "Talents" })

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_ResourceBars_SwingTimer.lua
 -- WoW FOREVER ONLY: Swing Timer resource bar.
 --
@@ -679,10 +680,10 @@ end)
 local function RegisterEvents()
     if S.events then return end
     S.events = true
-    shell:RegisterEvent("PLAYER_SWING")
-    shell:RegisterEvent("PLAYER_SWING_RANGE_UPDATE")
+    EUI_SafeRegisterEvent(shell, "PLAYER_SWING")
+    EUI_SafeRegisterEvent(shell, "PLAYER_SWING_RANGE_UPDATE")
     shell:RegisterEvent("PLAYER_TARGET_CHANGED")
-    shell:RegisterEvent("WEAPON_SLOT_CHANGED")
+    EUI_SafeRegisterEvent(shell, "WEAPON_SLOT_CHANGED")
     shell:RegisterEvent("PLAYER_ENTERING_WORLD")
     shell:RegisterEvent("PLAYER_DEAD")
     shell:RegisterUnitEvent("UNIT_ATTACK_SPEED", "player")

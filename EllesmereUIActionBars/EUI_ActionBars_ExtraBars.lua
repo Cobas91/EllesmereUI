@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBars_ExtraBars.lua
 --
@@ -776,10 +777,10 @@ local function SetupExtraBarHolder(barKey, frameName, barInfo)
 
         -- Safety net: on LFG_UPDATE, re-parent and let Blizzard show the eye
         local queueWatcher = ns.TakeShell()
-        queueWatcher:RegisterEvent("LFG_UPDATE")
-        queueWatcher:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
-        queueWatcher:RegisterEvent("LFG_ROLE_CHECK_UPDATE")
-        queueWatcher:RegisterEvent("LFG_PROPOSAL_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_QUEUE_STATUS_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_ROLE_CHECK_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_PROPOSAL_UPDATE")
         queueWatcher:SetScript("OnEvent", function()
             EnsureQueueParent()
             RepositionQueue()

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_UnitFrames_ForeverImbues.lua  (WoW Forever only)
 --
@@ -240,8 +241,8 @@ function ns.PAB_FvImbueSync(want)
             events = CreateFrame("Frame")
             events:SetScript("OnEvent", OnEvent)
         end
-        events:RegisterEvent("WEAPON_ENCHANT_CHANGED")
-        events:RegisterEvent("WEAPON_SLOT_CHANGED")
+        EUI_SafeRegisterEvent(events, "WEAPON_ENCHANT_CHANGED")
+        EUI_SafeRegisterEvent(events, "WEAPON_SLOT_CHANGED")
         events:RegisterEvent("PLAYER_ENTERING_WORLD")
     else
         if events then events:UnregisterAllEvents() end

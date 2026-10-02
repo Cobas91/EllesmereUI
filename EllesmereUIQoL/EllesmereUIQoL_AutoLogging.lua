@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIQoL_AutoLogging.lua
 --  Toggles combat logging on zone transitions based on instance type/difficulty.
@@ -83,7 +84,7 @@ local function ZoneShouldBeLogged()
     -- key only that client offers, off until the player turns it on). Retail
     -- map thresholds, difficulties, Mythic+, arenas and scenarios do not
     -- apply there.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         if zoneType == "raid" then return GetTrigger(c, "logNormal") end
         if zoneType == "party" then return c.logDungeon == true end
         return false
@@ -168,7 +169,7 @@ local function SyncEventRegistration()
     if want == _eventsRegistered then return end
     _eventsRegistered = want
     for ev in pairs(events) do
-        if want then logFrame:RegisterEvent(ev) else logFrame:UnregisterEvent(ev) end
+        if want then EUI_SafeRegisterEvent(logFrame, ev) else EUI_SafeUnregisterEvent(logFrame, ev) end
     end
 end
 

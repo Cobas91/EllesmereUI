@@ -1,0 +1,33 @@
+## Interface: 11509
+## Title: |cff0cd29fEllesmereUI|r DataBars
+## Category: |cff0cd29fEllesmere|rUI
+## Group: EllesmereUI
+## Notes: Information bar for EllesmereUI - clock, gold, reputation and more
+## Author: Ellesmere
+## Version: 9.3.5
+## Dependencies: EllesmereUI
+## SavedVariables: EllesmereUIDataBarsDB
+## IconTexture: Interface\AddOns\EllesmereUI\media\eg-logo.tga
+
+# Runtime
+EllesmereUIDataBars.lua
+Blocks\Shared.lua
+Blocks\Clock.lua
+Blocks\Stats.lua
+Blocks\Location.lua
+Blocks\Gold.lua
+Blocks\Bags.lua
+Blocks\XPRep.lua
+Blocks\Travel.lua
+Blocks\Spec.lua
+Blocks\Profession.lua
+Blocks\MicroMenu.lua
+Blocks\Currency.lua
+Blocks\Supplies.lua
+Blocks\Crests.lua
+Blocks\ItemLevel.lua
+Blocks\Audio.lua
+Blocks\LDB.lua
+Blocks\Spacer.lua
+
+# Options

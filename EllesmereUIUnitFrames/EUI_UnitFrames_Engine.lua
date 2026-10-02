@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_UnitFrames_Engine.lua
 --
@@ -607,9 +608,9 @@ function Engine.Attach(frame, unit, channels)
                     list = {}
                     byEvent[ev] = list
                     if secondary then
-                        t:RegisterUnitEvent(ev, unit, secondary)
+                        EUI_SafeRegisterUnitEvent(t, ev, unit, secondary)
                     else
-                        t:RegisterUnitEvent(ev, unit)
+                        EUI_SafeRegisterUnitEvent(t, ev, unit)
                     end
                 end
                 local seen = false
@@ -653,9 +654,9 @@ function Engine.SetChannelOn(frame, channel, on)
                 list = {}
                 byEvent[ev] = list
                 if secondary then
-                    t:RegisterUnitEvent(ev, unit, secondary)
+                    EUI_SafeRegisterUnitEvent(t, ev, unit, secondary)
                 else
-                    t:RegisterUnitEvent(ev, unit)
+                    EUI_SafeRegisterUnitEvent(t, ev, unit)
                 end
             end
             local seen = false
@@ -667,7 +668,7 @@ function Engine.SetChannelOn(frame, channel, on)
             end
             if #list == 0 then
                 byEvent[ev] = nil
-                t:UnregisterEvent(ev)
+                EUI_SafeUnregisterEvent(t, ev)
             end
         end
     end
@@ -886,8 +887,8 @@ end
 -- event registration means nothing re-registers here -- these just move
 -- frame._euiUnit and trigger the full repaint.
 local vehicleWatch = CreateFrame("Frame")
-vehicleWatch:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-vehicleWatch:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+EUI_SafeRegisterUnitEvent(vehicleWatch, "UNIT_ENTERED_VEHICLE", "player")
+EUI_SafeRegisterUnitEvent(vehicleWatch, "UNIT_EXITED_VEHICLE", "player")
 vehicleWatch:RegisterUnitEvent("UNIT_PET", "player")
 vehicleWatch:SetScript("OnEvent", function(_, event)
     EvalActiveUnit(unitFrames.player)
@@ -909,16 +910,16 @@ end)
 -------------------------------------------------------------------------------
 local globalFrame = CreateFrame("Frame")
 globalFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-globalFrame:RegisterEvent("PLAYER_FOCUS_CHANGED")
+EUI_SafeRegisterEvent(globalFrame, "PLAYER_FOCUS_CHANGED")
 globalFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 globalFrame:RegisterEvent("RAID_TARGET_UPDATE")
-globalFrame:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+EUI_SafeRegisterEvent(globalFrame, "INSTANCE_ENCOUNTER_ENGAGE_UNIT")
 -- 2D portrait art streams in AFTER the paint that asked for it (loading
 -- screens, vehicle transitions); this unitless event is the only trigger
 -- that follows, so it fans the portrait painter out to every shown frame
 -- (rare event, bounded fan-out -- the old element wiring registered it
 -- unconditionally on every portrait frame).
-globalFrame:RegisterEvent("PORTRAITS_UPDATED")
+EUI_SafeRegisterEvent(globalFrame, "PORTRAITS_UPDATED")
 globalFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_TARGET_CHANGED" then
         local f = unitFrames.target

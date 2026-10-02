@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 local addon, ns = ...
 
 if not ns then return end
@@ -998,8 +999,8 @@ hooksecurefunc(NamePlateDriverFrame, "OnNamePlateAdded", function(_, unit)
                 uf:UnregisterAllEvents()
                 uf:RegisterUnitEvent("UNIT_NAME_UPDATE", unit)
                 uf:RegisterEvent("PLAYER_TARGET_CHANGED")
-                uf:RegisterEvent("PLAYER_SOFT_FRIEND_CHANGED")
-                uf:RegisterEvent("PLAYER_SOFT_ENEMY_CHANGED")
+                EUI_SafeRegisterEvent(uf, "PLAYER_SOFT_FRIEND_CHANGED")
+                EUI_SafeRegisterEvent(uf, "PLAYER_SOFT_ENEMY_CHANGED")
                 -- Blizzard's RaidTargetFrame is the marker display on this path and
                 -- its OnUnitSet drives it from this event alone; without it the marker
                 -- froze until the plate was re-acquired.

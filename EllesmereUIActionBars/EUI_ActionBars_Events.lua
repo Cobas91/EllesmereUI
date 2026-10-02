@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBars_Events.lua
 --
@@ -555,7 +556,7 @@ ns.ApplyBarDormancy = function(key, dormant)
             if not fd.evGated then
                 fd.evGated = true
                 for _, ev in ipairs(list) do
-                    btn:UnregisterEvent(ev)
+                    EUI_SafeUnregisterEvent(btn, ev)
                 end
             end
         end
@@ -982,7 +983,7 @@ do
         -- Player-filtered: silent at idle.
         dispatcher:RegisterUnitEvent("UNIT_SPELLCAST_STOP", "player")
         dispatcher:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
-        dispatcher:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
+        EUI_SafeRegisterUnitEvent(dispatcher, "UNIT_SPELLCAST_EMPOWER_STOP", "player")
         -- Press-time hot-lane triggers (handler's press branch): earliest
         -- edges observing a QUEUED press's cooldown-record update. Quiet
         -- outside active casting; the branch is a nil-check otherwise.
@@ -997,10 +998,10 @@ do
         dispatcher:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
         dispatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
         dispatcher:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
-        dispatcher:RegisterEvent("SPELL_UPDATE_CHARGES")
-        dispatcher:RegisterEvent("SPELL_UPDATE_ICON")
-        dispatcher:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR")
-        dispatcher:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
+        EUI_SafeRegisterEvent(dispatcher, "SPELL_UPDATE_CHARGES")
+        EUI_SafeRegisterEvent(dispatcher, "SPELL_UPDATE_ICON")
+        EUI_SafeRegisterEvent(dispatcher, "UPDATE_VEHICLE_ACTIONBAR")
+        EUI_SafeRegisterEvent(dispatcher, "UPDATE_OVERRIDE_ACTIONBAR")
         -- Owning edges for Blizzard paging (page arrows, stealth/form bonus
         -- bars): these re-map action attributes, so must land in the
         -- infrequent branch as content edges -- nothing else heals the filled lists.
@@ -1017,9 +1018,9 @@ do
         -- branch, retiring button lists via ns._cdFilledDirty; the curated-set memo
         -- retires separately (ns._cdCuratedDirty) -- these three plus SPELLS_CHANGED
         -- and PEW are the ONLY edges that can change what the viewer curates.
-        dispatcher:RegisterEvent("COOLDOWN_VIEWER_DATA_LOADED")
-        dispatcher:RegisterEvent("COOLDOWN_VIEWER_TABLE_HOTFIXED")
-        dispatcher:RegisterEvent("COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED")
+        EUI_SafeRegisterEvent(dispatcher, "COOLDOWN_VIEWER_DATA_LOADED")
+        EUI_SafeRegisterEvent(dispatcher, "COOLDOWN_VIEWER_TABLE_HOTFIXED")
+        EUI_SafeRegisterEvent(dispatcher, "COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED")
         -- Per-button content refresh for a changed slot. Shared by the
         -- dispatcher's SLOT_CHANGED full walk (arg1 == 0) and the
         -- slot->buttons fast path; on ns because this chunk is at the 200-local cap.

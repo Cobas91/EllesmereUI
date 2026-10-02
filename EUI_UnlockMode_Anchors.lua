@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_UnlockMode_Anchors.lua
 --  Anchor / match engine: anchor and size-match DB helpers, match status
@@ -646,7 +647,7 @@ local function ValidateStoredLinks()
     -- client on the same terms (its other end live, a unit frame key, or
     -- another such key).
     local function clientAbsent(key)
-        return EllesmereUI.IS_FOREVER == true
+        return (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)
             and (key == "FavorBar" or key == "EUI_BattleRes" or key == "EUI_Bloodlust")
     end
     local function LinkGone(childKey, targetKey)

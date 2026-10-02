@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIBags_Grid.lua
 --  Grid bag display (bagDisplayMode = "grid"): the secure item-slot factory,
@@ -70,6 +71,7 @@ local function GetOrCreateSlot(idx)
     local slotParent = CreateFrame("Frame", nil, EUI_Bags)
     slotParent:SetSize(SLOT_SIZE, SLOT_SIZE)
     local btn = CreateFrame("ItemButton", nil, slotParent, "ContainerFrameItemButtonTemplate")
+    ns.EnsureItemButtonMethods(btn)
     btn:SetAllPoints(slotParent)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:RegisterForDrag("LeftButton")
@@ -366,8 +368,11 @@ local function RenderButton(btn, data, _, col, row, startX, currentY, _, interac
             dimFrame:Hide()
             btn._warbankDim = dimFrame
         end
+        -- No Warband bank tabs on Classic Era (EUI_BankFrame never defines
+        -- IsWarbandView there), so this stays permanently hidden -- the check
+        -- below already degrades safely on its own, kept explicit for clarity.
         local bank = _G.EUI_BankFrame
-        local showDim = bank and bank:IsVisible()
+        local showDim = not EllesmereUI.IS_CLASSIC_ERA and bank and bank:IsVisible()
             and bank.IsWarbandView and bank:IsWarbandView()
             and not data._isWarbound
         if showDim then

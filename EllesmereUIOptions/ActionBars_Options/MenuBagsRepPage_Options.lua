@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  ActionBars_Options\MenuBagsRepPage_Options.lua
 --  Action Bars options: the Menu, Bags & Rep Bars page (BuildMenuBagsRepPage)
@@ -18,7 +19,7 @@ if not ns then return end  -- module disabled: no options page
 ---------------------------------------------------------------------------
 
 -- The data bars this client builds (WoW Forever has no House Favor bar).
-local DATA_BAR_KEYS = EllesmereUI.IS_FOREVER and { "XPBar", "RepBar" }
+local DATA_BAR_KEYS = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { "XPBar", "RepBar" }
     or { "XPBar", "RepBar", "FavorBar" }
 local DATA_BAR_LABELS = { XPBar = "XP Bar", RepBar = "Reputation Bar", FavorBar = "House Favor Bar" }
 local ORIENT_VALUES = { HORIZONTAL = "Horizontal", VERTICAL = "Vertical" }
@@ -861,7 +862,7 @@ local function BuildMenuBagsRepPage(pageName, parent, yOffset)
     --  REPUTATION BAR / HOUSE FAVOR BAR
     -------------------------------------------------------------------
     y = K.Section(y, "RepBar", "REPUTATION BAR", "Rep Bar Visibility")
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     _, h = W:Spacer(parent, y, 12);  y = y - h
     y = K.Section(y, "FavorBar", "HOUSE FAVOR BAR", "Favor Bar Visibility")
     end -- not IS_FOREVER

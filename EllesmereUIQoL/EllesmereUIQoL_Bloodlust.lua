@@ -1,5 +1,6 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
-if EllesmereUI and EllesmereUI.IS_FOREVER then return end -- no raid-wide lust on WoW Forever: no icon, no events, no unlock mover, even when a saved or imported profile has the tracker enabled; the options section is not built there and every reader of the _G._EUI_Bloodlust_* hooks nil-guards
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+if EllesmereUI and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end -- no raid-wide lust on WoW Forever: no icon, no events, no unlock mover, even when a saved or imported profile has the tracker enabled; the options section is not built there and every reader of the _G._EUI_Bloodlust_* hooks nil-guards
 -------------------------------------------------------------------------------
 --  EllesmereUIQoL_Bloodlust.lua
 --  Runtime for the Bloodlust Tracker icon. Detects the player's Sated /
@@ -878,14 +879,14 @@ local function _ensureEvents(enabled)
         _eventFrame:RegisterUnitEvent("UNIT_AURA", "player")
         _eventFrame:RegisterEvent("ENCOUNTER_START")
         _eventFrame:RegisterEvent("ENCOUNTER_END")
-        _eventFrame:RegisterEvent("CHALLENGE_MODE_START")
-        _eventFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
-        _eventFrame:RegisterEvent("CHALLENGE_MODE_RESET")
-        _eventFrame:RegisterEvent("WORLD_STATE_TIMER_START")
-        _eventFrame:RegisterEvent("WORLD_STATE_TIMER_STOP")
+        EUI_SafeRegisterEvent(_eventFrame, "CHALLENGE_MODE_START")
+        EUI_SafeRegisterEvent(_eventFrame, "CHALLENGE_MODE_COMPLETED")
+        EUI_SafeRegisterEvent(_eventFrame, "CHALLENGE_MODE_RESET")
+        EUI_SafeRegisterEvent(_eventFrame, "WORLD_STATE_TIMER_START")
+        EUI_SafeRegisterEvent(_eventFrame, "WORLD_STATE_TIMER_STOP")
         _eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
         _eventFrame:RegisterEvent("PLAYER_DEAD")
-        _eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+        EUI_SafeRegisterEvent(_eventFrame, "PLAYER_SPECIALIZATION_CHANGED")
     else
         _eventFrame:UnregisterAllEvents()
     end

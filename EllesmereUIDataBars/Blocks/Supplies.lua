@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 if not EllesmereUI.IS_FOREVER then return end
 -- Carried class resources on WoW Forever. Banks and crafting materials are excluded.
 local ADDON_NAME, ns = ...

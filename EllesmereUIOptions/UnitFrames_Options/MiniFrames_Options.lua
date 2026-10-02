@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  UnitFrames_Options\MiniFrames_Options.lua
 --  Unit Frames options: Mini Frames and Boss Frames builders. Definitions
@@ -1656,7 +1657,7 @@ function ns.UFO_BuildPetOptions(W, parent, y)
     -- hunter pets track happiness (PET HAPPINESS, below the power bar).
     -- Retail builds neither.
     local petOpts, petPower, happyHeader, happyRow
-    if EllesmereUI.IS_FOREVER == true then
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
         petPower = ns.UF_PetHasPower and not EllesmereUI.BlizzStyle.Get("unitframes")
         local P = db.profile.pet
         local function happyOff() return P.happinessEnabled == false end

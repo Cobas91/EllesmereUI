@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_Widgets_Color.lua
 --  Color widgets: HSV helpers, the color picker popup, the color swatches
@@ -162,13 +163,13 @@ local function BuildColorPickerPopup()
         -- Defer registration one frame so the mouse-down that opened the popup doesn't immediately trigger click-outside-to-close.
         C_Timer.After(0, function()
             if popup:IsShown() then
-                clickOffFrame:RegisterEvent("GLOBAL_MOUSE_DOWN")
+                EUI_SafeRegisterEvent(clickOffFrame, "GLOBAL_MOUSE_DOWN")
                 clickOffFrame:Show()
             end
         end)
     end)
     popup:HookScript("OnHide", function()
-        clickOffFrame:UnregisterEvent("GLOBAL_MOUSE_DOWN")
+        EUI_SafeUnregisterEvent(clickOffFrame, "GLOBAL_MOUSE_DOWN")
         clickOffFrame:Hide()
     end)
 

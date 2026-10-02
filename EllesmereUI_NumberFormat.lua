@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 --------------------------------------------------------------------------------
 --  EllesmereUI_NumberFormat.lua
 --  Central "abbreviate a big number to K/M/B/etc." engine, shared by every module
@@ -136,7 +137,7 @@ end
 --------------------------------------------------------------------------------
 --  WoW Forever only: no tier below 10,000.
 --------------------------------------------------------------------------------
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     -- rows (largest first) -> a new list without the tiers below 10,000, bar the
     -- plain one (breakpoint 1 or 0). When nothing then starts AT 10,000, the
     -- largest dropped tier moves up to start there, keeping its divisors: the

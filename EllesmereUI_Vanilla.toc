@@ -1,0 +1,103 @@
+## Interface: 11509
+## Title: |cff0cd29fEllesmereUI|r
+## Notes: Shared framework for the EllesmereUI addon suite
+## Author: Ellesmere
+## Version: 9.3.5
+## SavedVariables: EllesmereUIDB
+## IconTexture: Interface\AddOns\EllesmereUI\media\eg-logo.tga
+## X-Curse-Project-ID: 1477613
+## X-Wago-ID: ZKbxbRN1
+
+# Pre-12.1 client failsafe -- MUST load first (arms the per-file guard line)
+EllesmereUI_ClientGate.lua
+
+# Event-registration guards (EUI_SafeRegisterEvent & co.) for every client;
+# the rest of the file is the WoW Classic Era compatibility layer and returns
+# at once elsewhere (EllesmereUI_Vanilla.toc is the Classic Era manifest).
+EllesmereUI_ClassicCompat.lua
+
+# Libraries
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
+Libs\LibDeflate\LibDeflate.lua
+Libs\LibKeystone\LibKeystone.lua
+Libs\LibSpecialization\LibSpecialization.lua
+
+# Lightweight addon framework (replaces Ace3)
+EllesmereUI_Lite.lua
+
+# Game settings EllesmereUI changes, recorded so Uninstall EUI can put them back
+# (before any file that changes one)
+EllesmereUI_Uninstall.lua
+
+# Central multi-language engine (resolves locale + glyph font; defines L/Lf/EnKey)
+# Translation data lives in the LoadOnDemand EllesmereUILocales child addon,
+# loaded by the engine at ADDON_LOADED for non-English locales only.
+EllesmereUI_Locale.lua
+
+# Central number-abbreviation engine (K/M/B by default; CJK wan/yi grouping
+# tables keyed by locale; a locale file may register its own algorithm).
+EllesmereUI_NumberFormat.lua
+
+# One-time data migration (runs before child addons init)
+EllesmereUI_Migration.lua
+
+# Early startup -- applies engine-cached settings before PLAYER_LOGIN
+EllesmereUI_Startup.lua
+
+# Shared EllesmereUI Files
+EllesmereUI_PixelPerfect.lua
+EllesmereUI.lua
+EllesmereUI_Panel.lua
+EllesmereUI_VisibilityRules.lua
+EllesmereUI_SharedHelpers.lua
+EllesmereUI_Popups.lua
+EllesmereUI_Colors.lua
+EllesmereUI_Fonts.lua
+EllesmereUI_ProfileSync.lua
+EllesmereUI_RetailAtlas.lua
+EllesmereUI_BuffPresets.lua
+EllesmereUI_UICore.lua
+EllesmereUI_Ticker.lua
+EllesmereUI_Mouse.lua
+EllesmereUI_BlizzardParty.lua
+EllesmereUI_Kick.lua
+EllesmereUI_MenuFallbacks.lua
+EllesmereUI_GlobalSearch.lua
+EllesmereUI_Visibility.lua
+EllesmereUI_Presets.lua
+EllesmereUI_Profiles.lua
+EllesmereUI_PartyMode.lua
+EUI_MacroFactory.lua
+EUI_UnlockMode.lua
+EUI_UnlockMode_Anchors.lua
+EUI_UnlockMode_Positions.lua
+EUI_UnlockMode_Tools.lua
+EUI_UnlockMode_Movers.lua
+EUI_UnlockMode_Session.lua
+EllesmereUI_Glows.lua
+EllesmereUI_ClassicArt.lua
+EllesmereUI_Range.lua
+EllesmereUI_AuraContainerCompat.lua
+EllesmereUI_AuraKit.lua
+EllesmereUI_WarriorCharges.lua
+EllesmereUI_ManaRegenSpark.lua
+EllesmereUI_SpellCostPrediction.lua
+EllesmereUI_FirstInstall.lua
+EllesmereUI_RaidFramesPopup.lua
+EllesmereUI_PatchNotesPopup.lua
+EllesmereUI_WindowSkinsPopup.lua
+EllesmereUI_SpecOverridesPopup.lua
+EllesmereUI_StyleCards.lua
+EllesmereUI_StyleChoicePopup.lua
+EllesmereUI_StyleLaunchPopup.lua
+EllesmereUI_VideoGuides.lua
+
+# Spec Overrides (per-spec setting overrides within a profile)
+EllesmereUI_SpecOverrides.lua
+
+# Conditional Overrides engine (Dungeon/Raid/Arena/BG/Solo/Keybind conditions;
+# override integration lives in EllesmereUI_SpecOverrides.lua)
+EllesmereUI_Conditions.lua

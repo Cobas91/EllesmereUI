@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_QoL_Options.lua
 --  Registers the Quality of Life sidebar addon with its two tabs:
@@ -433,7 +434,7 @@ initFrame:SetScript("OnEvent", function(self)
 
         -- AH Current Expansion Only | Hide Talking Head. Not offered on WoW
         -- Forever: the row is not built there and neither runtime block exists.
-        if not EllesmereUI.IS_FOREVER then
+        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         _, h = W:DualRow(parent, y,
             { type="toggle", text="AH Current Expansion Only",
               tooltip="Automatically enables the 'Current Expansion Only' filter whenever you open the Auction House.",
@@ -1255,7 +1256,7 @@ initFrame:SetScript("OnEvent", function(self)
         local row4
         row4, h = W:DualRow(parent, y,
             { type="toggle", text="Secondary Stat Display",
-              tooltip=EllesmereUI.IS_FOREVER
+              tooltip=(EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)
                   and "Displays secondary stat percentages (Crit, Haste) at the top left of the screen."
                   or "Displays secondary stat percentages (Crit, Haste, Mastery, Vers) at the top left of the screen.",
               getValue=function()
@@ -2133,7 +2134,7 @@ initFrame:SetScript("OnEvent", function(self)
                   EllesmereUI:RefreshPage()
               end }
         local noteRow
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             _, h = W:DualRow(parent, y, announceCfg, EllesmereUI.BlankRowCfg());  y = y - h
         else
             _, h = W:DualRow(parent, y, autoKeyCfg, announceCfg);  y = y - h
@@ -2336,12 +2337,12 @@ initFrame:SetScript("OnEvent", function(self)
     local pages = { PAGE_QOL, PAGE_RAIDTOOLS, PAGE_CURSOR, PAGE_SHIFTER, PAGE_MOVEMENT }
     -- No item upgrade system on WoW Forever: the Upgrader tab is not offered there
     -- (its resident file returns at load, so the page builder never exists either).
-    if not EllesmereUI.IS_FOREVER then pages[#pages + 1] = PAGE_UPGCALC end
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then pages[#pages + 1] = PAGE_UPGCALC end
     local searchTerms = { "brez", "bres", "battle res", "combat res", "cursor", "macro", "fps", "logging", "combat log", "warcraft logs", "upgrade", "ilvl", "item level", "crest", "upgrade calculator", "shifter", "move", "drag", "position", "demodal", "drift", "combat alert", "enter combat", "leave combat", "in combat", "combat text", "combat notification", "transform", "transforms", "costume", "disguise", "chef's hat", "noggenfogger", "target distance", "distance to target", "range text", "yard", "yards", "movement", "mobility", "gap closer", "blink", "gateway", "warlock gateway", "control shard", "time spiral", "free movement", "raid tools", "raid", "pull timer", "pull", "ready check", "role check", "raid marker", "target marker", "world marker", "flare", "disband", "convert to raid", "countdown" }
     -- Terms for features WoW Forever does not have (the Battle Res indicator)
     -- are dropped there, so a sidebar search for them does not list this
     -- module; retail keeps the full list.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local foreverDrop = { ["brez"] = true, ["bres"] = true, ["battle res"] = true, ["combat res"] = true }
         for i = #searchTerms, 1, -1 do
             if foreverDrop[searchTerms[i]] then table.remove(searchTerms, i) end

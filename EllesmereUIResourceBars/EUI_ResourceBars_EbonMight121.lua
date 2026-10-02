@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_ResourceBars_EbonMight121.lua
 -- 12.1 ONLY: engine-slot driver for the Aug Evoker Ebon Might power bar.
 --

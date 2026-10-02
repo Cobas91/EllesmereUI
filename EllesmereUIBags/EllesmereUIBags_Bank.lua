@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIBags_Bank.lua
 --  Bank UI module - opens when interacting with a banker NPC
@@ -12,6 +13,23 @@ local GetItemQualityColor = C_Item.GetItemQualityColor
 -- Profile access helper (DB created in EUI_Bags_Options.lua, loaded first per TOC)
 local _emptyP = {}
 local function BP() return (EUI._bagsDB and EUI._bagsDB.profile) or _emptyP end
+
+-- Enum.BankType / Enum.PlayerInteractionType are Midnight-era Enum tables, not
+-- C_* namespaces, so the core compat shim (which only wraps C_* namespaces)
+-- does not cover them. This file reads Enum.BankType.Character/.Account in
+-- ~25 places; on Classic Era, where neither Enum exists at all, a bare
+-- `Enum.BankType.Character` would error on the nil index before any C_Bank
+-- stub call even runs. Values are never passed to a real Classic Era API
+-- (every call site that reaches a real function is either C_Bank-gated, which
+-- is itself stubbed to neutral no-ops, or the Classic-only SortBankBags() path
+-- below, which takes no bank-type argument at all) -- these just need to be
+-- non-nil tokens so comparisons/indexing stay safe.
+if not Enum.BankType then
+    Enum.BankType = { Character = 1, Account = 2 }
+end
+if not Enum.PlayerInteractionType then
+    Enum.PlayerInteractionType = { AccountBanker = 0 }
+end
 
 -- The bank has no MultiBank view, so both the OneBag and MultiBag default
 -- types open the bank to its consolidated OneBank/OneWarbank view; only the
@@ -102,7 +120,17 @@ end
 
 local CHARACTER_BANK_BAGS = {}
 local WARBAND_BANK_BAGS = {}
-if Enum and Enum.BagIndex then
+if EllesmereUI.IS_CLASSIC_ERA then
+    -- Classic Era has no bank tabs: the bank is the base bank container
+    -- (BANK_CONTAINER, -1) plus up to NUM_BANKBAGSLOTS bank bags, which sit
+    -- right after the player's bags (container IDs 5-10). Each one that holds
+    -- a bag shows as its own tab, like a Forever bank bag slot. No Warband bank.
+    CHARACTER_BANK_BAGS[1] = (Enum.BagIndex and Enum.BagIndex.Bank) or BANK_CONTAINER or -1
+    local first = (NUM_BAG_SLOTS or 4) + 1
+    for bagID = first, first + (NUM_BANKBAGSLOTS or 6) - 1 do
+        CHARACTER_BANK_BAGS[#CHARACTER_BANK_BAGS + 1] = bagID
+    end
+elseif Enum and Enum.BagIndex then
     -- Character bank: CharacterBankTab_1 through _6 (WoW Forever has up to _9:
     -- the base bank plus its bank bag slots). Missing enum keys are skipped.
     for i = 1, 9 do
@@ -124,7 +152,9 @@ local function GetCharacterBankTabs()
     local tabs = {}
     -- Use C_Bank.FetchPurchasedBankTabData for tab metadata (name, icon)
     local tabData
-    if C_Bank and C_Bank.FetchPurchasedBankTabData and Enum.BankType then
+    -- Classic Era has no purchasable bank tabs; its bank bags are discovered
+    -- from CHARACTER_BANK_BAGS below even if a C_Bank table answers here.
+    if not EllesmereUI.IS_CLASSIC_ERA and C_Bank and C_Bank.FetchPurchasedBankTabData and Enum.BankType then
         tabData = C_Bank.FetchPurchasedBankTabData(Enum.BankType.Character)
     end
     if tabData then
@@ -143,7 +173,20 @@ local function GetCharacterBankTabs()
         for i, bagID in ipairs(CHARACTER_BANK_BAGS) do
             local numSlots = C_Container.GetContainerNumSlots(bagID)
             if numSlots > 0 then
-                tabs[#tabs + 1] = { bagID = bagID, numSlots = numSlots, name = EUI.Lf("Bank Tab %1$d", #tabs + 1), icon = GetFallbackIcon(bagID), depositFlags = 0 }
+                local name, icon = EUI.Lf("Bank Tab %1$d", #tabs + 1), GetFallbackIcon(bagID)
+                if EllesmereUI.IS_CLASSIC_ERA then
+                    -- Classic Era: the base bank reads "Bank"; a bank bag tab is
+                    -- named and iconed after the bag sitting in that slot.
+                    if i == 1 then
+                        name = EllesmereUI.L("Bank")
+                    else
+                        local invSlot = C_Container.ContainerIDToInventoryID and C_Container.ContainerIDToInventoryID(bagID)
+                        local link = invSlot and GetInventoryItemLink("player", invSlot)
+                        name = (link and GetItemInfo(link)) or (BANK_BAG or "Bank Bag")
+                        icon = (invSlot and GetInventoryItemTexture("player", invSlot)) or icon
+                    end
+                end
+                tabs[#tabs + 1] = { bagID = bagID, numSlots = numSlots, name = name, icon = icon, depositFlags = 0 }
             end
         end
     end
@@ -330,7 +373,11 @@ sortBtn:SetScript("OnClick", function()
     if not isWarband and _selectedView > 0 and _allTabs[_selectedView] then
         isWarband = _allTabs[_selectedView].isWarband
     end
-    if isWarband then
+    if EllesmereUI.IS_CLASSIC_ERA then
+        -- Classic Era's bank sort is parameterless and single-tab; there is
+        -- never a warband bank to target.
+        if C_Container.SortBankBags then C_Container.SortBankBags() end
+    elseif isWarband then
         C_Container.SortBank(Enum.BankType.Account)
     else
         C_Container.SortBank(Enum.BankType.Character)
@@ -370,8 +417,15 @@ end
 -------------------------------------------------------------------------------
 local RefreshBankBags
 local bankBagsWindow
-if EUI.IS_FOREVER then
+if EUI.IS_FOREVER or EUI.IS_CLASSIC_ERA then
+    local CLASSIC = EUI.IS_CLASSIC_ERA
     local BANK_BAG_SLOTS = Enum.BagIndex.Characterbanktab
+    -- Classic Era: the bank bag slots are inventory slots (BankButtonIDToInvSlotID),
+    -- bought one at a time with PurchaseSlot behind Blizzard's confirmation.
+    local FIRST_BANK_BAG = (NUM_BAG_SLOTS or 4) + 1
+    local function ClassicInvSlot(i)
+        return C_Container.ContainerIDToInventoryID(FIRST_BANK_BAG + i - 1)
+    end
 
     local bagsWin = CreateFrame("Frame", nil, EUI_Bank)
     bankBagsWindow = bagsWin
@@ -389,7 +443,12 @@ if EUI.IS_FOREVER then
     bagsBtn:SetPoint("RIGHT", sortBtn, "LEFT", -6, 0)
     bagsBtn.icon = bagsBtn:CreateTexture(nil, "ARTWORK")
     bagsBtn.icon:SetAllPoints()
-    bagsBtn.icon:SetAtlas("bag-main")
+    -- Classic Era may lack the modern bag atlas; fall back to the backpack icon.
+    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("bag-main") then
+        bagsBtn.icon:SetAtlas("bag-main")
+    else
+        bagsBtn.icon:SetTexture("Interface\Buttons\Button-Backpack-Up")
+    end
     bagsBtn.icon:SetAlpha(0.9)
     bagsWin:SetPoint("BOTTOMRIGHT", bagsBtn, "TOPRIGHT", 0, 2)
 
@@ -411,6 +470,17 @@ if EUI.IS_FOREVER then
     end)
 
     local function PickupBag(self)
+        if CLASSIC then
+            if not self.bought then
+                -- Only the next slot is for sale; Blizzard's popup shows the price.
+                if self.nextForSale and StaticPopup_Show then StaticPopup_Show("CONFIRM_BUY_BANK_SLOT") end
+            elseif CursorHasItem() then
+                PutItemInBag(self.invSlot)
+            else
+                PickupBagFromSlot(self.invSlot)
+            end
+            return
+        end
         if self.bought then C_Container.PickupContainerItem(BANK_BAG_SLOTS, self.bagSlot) end
     end
 
@@ -435,7 +505,11 @@ if EUI.IS_FOREVER then
             SetInsetBorderColor(self, 1, 1, 1, 1)
             if self.hasBag then
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetBagItem(BANK_BAG_SLOTS, self.bagSlot)
+                if CLASSIC then
+                    GameTooltip:SetInventoryItem("player", self.invSlot)
+                else
+                    GameTooltip:SetBagItem(BANK_BAG_SLOTS, self.bagSlot)
+                end
                 GameTooltip:Show()
             else
                 EUI.ShowWidgetTooltip(self, self.bought and BANK_BAG or BANK_BAG_PURCHASE)
@@ -450,8 +524,46 @@ if EUI.IS_FOREVER then
         return btn
     end
 
+    local function RefreshClassicBankBags()
+        local numBought = GetNumBankSlots and GetNumBankSlots() or 0
+        local z = BP().bagItemIconZoom or 0.08
+        local n = NUM_BANKBAGSLOTS or 6
+        for i = 1, n do
+            local btn = GetOrCreateBagSlot(i)
+            btn.invSlot = ClassicInvSlot(i)
+            btn.bought = i <= numBought
+            btn.nextForSale = i == numBought + 1
+            local tex = btn.bought and GetInventoryItemTexture("player", btn.invSlot)
+            btn.hasBag = tex and true or false
+            btn.icon:SetTexCoord(z, 1 - z, z, 1 - z)
+            btn.icon:SetTexture(tex or "Interface\PaperDoll\UI-PaperDoll-Slot-Bag")
+            btn.icon:SetDesaturated(not btn.bought)
+            btn.icon:SetAlpha(btn.bought and 1 or 0.35)
+            if tex then
+                btn.Count:SetText(C_Container.GetContainerNumFreeSlots(FIRST_BANK_BAG + i - 1))
+                btn.Count:Show()
+            else
+                btn.Count:Hide()
+            end
+            local q = tex and GetInventoryItemQuality("player", btn.invSlot)
+            local c = q and q > 0 and ITEM_QUALITY_COLORS[q]
+            if c then
+                btn._bdrR, btn._bdrG, btn._bdrB = c.r, c.g, c.b
+            else
+                btn._bdrR, btn._bdrG, btn._bdrB = 0.25, 0.25, 0.25
+            end
+            SetInsetBorderColor(btn, btn._bdrR, btn._bdrG, btn._bdrB, 1)
+            btn:ClearAllPoints()
+            btn:SetPoint("TOPLEFT", bagsWin, "TOPLEFT", 10 + (i - 1) * (SLOT_SIZE + SPACING), -10)
+            btn:Show()
+        end
+        for i = n + 1, #slots do slots[i]:Hide() end
+        bagsWin:SetSize(n * (SLOT_SIZE + SPACING) + 16, SLOT_SIZE + 20)
+    end
+
     RefreshBankBags = function()
         if not bagsWin:IsShown() then return end
+        if CLASSIC then return RefreshClassicBankBags() end
         local maxBags = C_Bank.FetchMaxNumBankTabs(Enum.BankType.Character)
         local bought = C_Bank.FetchPurchasedBankTabData(Enum.BankType.Character)
         local z = BP().bagItemIconZoom or 0.08
@@ -664,6 +776,7 @@ do
     function EUI_Bank:UpdateFooterGold()
         local pMoney = GetMoney and GetMoney() or 0
         playerGold:SetText(FormatGold(pMoney))
+        if EllesmereUI.IS_CLASSIC_ERA then return end
         local wMoney = C_Bank and C_Bank.FetchDepositedMoney and C_Bank.FetchDepositedMoney(Enum.BankType.Account) or 0
         warbandGold:SetText(FormatGold(wMoney))
     end
@@ -680,6 +793,16 @@ do
         depositItemsLabel:SetTextColor(r, g, b, 1)
         depositItemsBtn:SetWidth(depositItemsLabel:GetStringWidth() + 16)
         depositItemsBtn:Show()
+        -- No Warband bank on Classic Era: there is no cross-tab money to move,
+        -- so the withdraw/deposit-to-warbank buttons and the warband gold
+        -- readout next to them have nothing to show, not just a wrong number.
+        if EllesmereUI.IS_CLASSIC_ERA then
+            withdrawMoneyBtn:Hide()
+            depositMoneyBtn:Hide()
+            warbandGold:Hide()
+            warbandHitbox:Hide()
+            return
+        end
         withdrawMoneyBtn:Show()
         depositMoneyBtn:Show()
     end
@@ -717,6 +840,8 @@ EUI_BankTabConfigFrame:Hide()
 
 -- Built lazily on the first right-click of a bank tab.
 local function EnsureBankTabConfigFrame()
+    -- Classic Era has exactly one, un-renamable bank tab -- nothing to configure.
+    if EllesmereUI.IS_CLASSIC_ERA then return end
     if EUI_BankTabConfigFrame.OpenBankTabSettings then return end
     -- Options surface is LoadOnDemand; load it so EUI.BuildCheckboxControl exists.
     if not EUI.BuildCheckboxControl then EUI:EnsureLoaded() end
@@ -1022,8 +1147,11 @@ end
 
 -- Secure purchase buttons: inherit BankPanelPurchaseButtonScriptTemplate so
 -- PurchaseBankTab() runs in Blizzard's secure context, not ours.
+-- Classic Era has no purchasable bank tabs and no such Blizzard template at
+-- all (Midnight-only XML); CreateFrame with an unknown template name errors,
+-- so these stay nil on Classic Era and every caller below null-checks them.
 local _purchaseBtnChar, _purchaseBtnWarband
-do
+if not EllesmereUI.IS_CLASSIC_ERA then
     local function MakeSecurePurchaseBtn(bankType)
         local b = CreateFrame("Button", nil, sidebar, "BankPanelPurchaseButtonScriptTemplate")
         b:SetAttribute("overrideBankType", bankType)
@@ -1449,6 +1577,7 @@ local function GetOrCreateBankSlot(idx)
     local slotParent = CreateFrame("Frame", nil, EUI_Bank)
     slotParent:SetSize(SLOT_SIZE, SLOT_SIZE)
     local btn = CreateFrame("ItemButton", nil, slotParent, "ContainerFrameItemButtonTemplate")
+    ns.EnsureItemButtonMethods(btn)
     btn:SetAllPoints(slotParent)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:RegisterForDrag("LeftButton")
@@ -2846,8 +2975,8 @@ function BuildBankSidebar()
 
     -- Hide all sidebar buttons + secure purchase overlays
     for _, btn in pairs(_sidebarBtns) do btn:Hide() end
-    _purchaseBtnChar:Hide()
-    _purchaseBtnWarband:Hide()
+    if _purchaseBtnChar then _purchaseBtnChar:Hide() end
+    if _purchaseBtnWarband then _purchaseBtnWarband:Hide() end
 
     -- Count used slots per tab, split by bank/warbank
     local charUsed, charTotal = 0, 0
@@ -3080,11 +3209,13 @@ eventFrame:RegisterEvent("BANKFRAME_OPENED")
 eventFrame:RegisterEvent("BANKFRAME_CLOSED")
 eventFrame:RegisterEvent("BAG_UPDATE")
 eventFrame:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
-eventFrame:RegisterEvent("BANK_TABS_CHANGED")
-eventFrame:RegisterEvent("BANK_TAB_SETTINGS_UPDATED")
-eventFrame:RegisterEvent("PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
+EUI_SafeRegisterEvent(eventFrame, "BANK_TABS_CHANGED")
+EUI_SafeRegisterEvent(eventFrame, "BANK_TAB_SETTINGS_UPDATED")
+EUI_SafeRegisterEvent(eventFrame, "PLAYER_ACCOUNT_BANK_TAB_SLOTS_CHANGED")
 eventFrame:RegisterEvent("PLAYER_MONEY")
-if EUI.IS_FOREVER then eventFrame:RegisterEvent("BAG_CONTAINER_UPDATE") end
+if EUI.IS_FOREVER or EUI.IS_CLASSIC_ERA then eventFrame:RegisterEvent("BAG_CONTAINER_UPDATE") end
+-- Classic Era: a bank bag slot was bought or a bag went into / out of one.
+if EUI.IS_CLASSIC_ERA then eventFrame:RegisterEvent("PLAYERBANKBAGSLOTS_CHANGED") end
 eventFrame:SetScript("OnEvent", function(_, event)
     if event == "BANKFRAME_OPENED" then
         -- WoW Forever's Gamepad interface style at login: Blizzard's bank
@@ -3205,9 +3336,9 @@ eventFrame:SetScript("OnEvent", function(_, event)
             ScheduleBankRefresh()
         end
 
-    elseif event == "BAG_CONTAINER_UPDATE" then
-        -- Forever: a bag went into or came out of a bank bag slot, which adds or
-        -- removes that tab.
+    elseif event == "BAG_CONTAINER_UPDATE" or event == "PLAYERBANKBAGSLOTS_CHANGED" then
+        -- Forever / Classic Era: a bag went into or came out of a bank bag slot,
+        -- which adds or removes that tab.
         if EUI_Bank:IsVisible() then
             local selTab = _selectedView > 0 and _allTabs[_selectedView]
             DiscoverBankTabs()

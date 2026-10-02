@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_Fonts_Options.lua
 --
@@ -150,7 +151,7 @@ local function TileActionBars(parent, y, W, tile)
         -- WoW Forever has no House Favor bar: its slot is blank there.
         _, h = W:DualRow(parent, y,
             dataBarCfg("Reputation Bar Text Size", "RepBar"),
-            EllesmereUI.IS_FOREVER and BLANK()
+            (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and BLANK()
                 or dataBarCfg("House Favor Bar Text Size", "FavorBar"));  y = y - h
         y = LinkRow(parent, y, "Keybind, Macro, Charges & Cooldown Text (per bar)",
             tile.folder, "Bar Display", "TEXT", "Keybind Text Size")
@@ -495,7 +496,7 @@ local function TileQoL(parent, y, W, tile)
     -- popup, no Battle Res indicator and no Bloodlust Tracker, so their slots
     -- are left out there and the rest close up, with a blank only in an odd
     -- last slot.
-    local FOREVER = EllesmereUI.IS_FOREVER
+    local FOREVER = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)
     local slots = {}
     local function add(cfg) slots[#slots + 1] = cfg end
     add(ModuleOutlineCfg(tile.folder, tile.display))
@@ -1041,7 +1042,7 @@ local function TileBlizzardSkin(parent, y, W, tile)
     -- so the enchant size sits alone in the last row.
     _, h = W:DualRow(parent, y,
         enchSizeCfg,
-        EllesmereUI.IS_FOREVER and BLANK() or
+        (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and BLANK() or
         { type = "slider", text = "Dragonriding Speed Text Size", min = 6, max = 32, step = 1,
           getValue = function()
               local p = ns.edrDB and ns.edrDB.profile and ns.edrDB.profile.speedText
@@ -1114,10 +1115,10 @@ local TILE_BUILDERS = {
     EllesmereUICooldownManager   = { TileCooldownManager,  "Icon duration, stacks, keybinds and tracking bar text" },
     EllesmereUIResourceBars      = { TileResourceBars,     "Health, power, class resource, cast and totem bar text" },
     EllesmereUIAuraBuffReminders = { TileAuraBuffReminders,"Reminder names, item counts and the mana warning" },
-    EllesmereUIQoL               = { TileQoL,              EllesmereUI.IS_FOREVER and "Alert and tracker text"
+    EllesmereUIQoL               = { TileQoL,              (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and "Alert and tracker text"
                                                                or "Alerts, trackers, battle res and popup text" },
     EllesmereUIForeverEssentials = { TileFontOnly,         "Font face and outline only" },
-    EllesmereUIBlizzardSkin      = { TileBlizzardSkin,     EllesmereUI.IS_FOREVER and "Tooltip text scale and enchant text"
+    EllesmereUIBlizzardSkin      = { TileBlizzardSkin,     (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and "Tooltip text scale and enchant text"
                                                                or "Tooltip text scale, enchant text and dragonriding speed" },
     EllesmereUIFriends           = { TileFontOnly,         "Font face and outline only" },
     EllesmereUIMythicTimer       = { TileMythicTimer,      "M+ timer, objectives, thresholds and spell bar text" },

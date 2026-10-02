@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_BlizzardSkin_Options.lua
 -------------------------------------------------------------------------------
@@ -2289,6 +2290,16 @@ initFrame:SetScript("OnEvent", function(self)
         end
     end
 
+    -- Classic Era runs only the window packs whose window is the same modern
+    -- frame there (CLASSIC_ERA_PACKS in EllesmereUIBlizzardSkin_WindowEngine.lua);
+    -- every other card would switch a skin that never applies, so it goes.
+    if EllesmereUI.IS_CLASSIC_ERA then
+        local classicKept = { settings = true }
+        for i = #WINDOWS, 1, -1 do
+            if not classicKept[WINDOWS[i].key] then table.remove(WINDOWS, i) end
+        end
+    end
+
     local function WSGetStyle(win)
         return EllesmereUI.GetBlizzWindowStyle(win.key)
     end
@@ -3296,10 +3307,10 @@ initFrame:SetScript("OnEvent", function(self)
         title       = "Blizz UI Enhanced",
         -- WoW Forever has no skyriding: the Dragon Riding tab is not registered there
         -- (its resident file returns at load, so the page would have no DB to read).
-        description = EllesmereUI.IS_FOREVER and "Themed Blizzard frames: window skins, tooltips, menus, popups."
+        description = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and "Themed Blizzard frames: window skins, tooltips, menus, popups."
             or "Themed Blizzard frames: window skins, tooltips, menus, popups, Dragon Riding HUD.",
         searchTerms = "blizzard skin character sheet tooltip menu popup dragon riding skyriding window skins lfg group finder premade queue pause game menu great vault inspect collections mounts pets toys spellbook talents adventure guide encounter journal professions guild communities calendar achievements mail catalyst gem socket item upgrade upgrades crest loot window loot toast you received popup micro menu modern delves companion brann loot roll need greed pass disenchant loot rolls pending rolls group invite invited to a group role",
-        pages       = EllesmereUI.IS_FOREVER and { PAGE_WINDOWSKINS, PAGE_TOOLTIPS }
+        pages       = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { PAGE_WINDOWSKINS, PAGE_TOOLTIPS }
             or { PAGE_WINDOWSKINS, PAGE_TOOLTIPS, PAGE_DRAGONRIDING },
         buildPage   = function(pageName, parent, yOffset)
             if pageName == PAGE_WINDOWSKINS then

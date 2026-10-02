@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  UnitFrames_Options\SharedCastAuras_Options.lua
 --  Unit Frames options: Cast Bar and Buffs and Debuffs sections of the
@@ -1717,7 +1718,7 @@ function ns.UFO_BuildBuffsDebuffsSection(parent, y, ctx)
                     if ps.buffFilters and next(ps.buffFilters) then
                         -- WoW Forever: visible filters only (a hidden retail
                         -- preset shows nothing on this client).
-                        if not EllesmereUI.IS_FOREVER then return true end
+                        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return true end
                         for fid in pairs(ps.buffFilters) do
                             if not ns.PAB_HiddenPresetFilter(fid) then return true end
                         end

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI Action Bars - XP Bar
 --  The XP bar's own runtime: its frame art styles and profession flipbook
@@ -708,7 +709,7 @@ function ns.XPBarAtMaxLevel()
 end
 
 -- WoW Forever: raw XP under 10,000 is not abbreviated (EllesmereUI_NumberFormat.lua).
-ns.AbbreviateLargeNumbers = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateLargeNumbers) or AbbreviateLargeNumbers
+ns.AbbreviateLargeNumbers = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateLargeNumbers) or AbbreviateLargeNumbers
 local function UpdateXPBar()
     local frame, s = EAB_VTABLE.ExtraBars.BeginManagedDataBarUpdate("XPBar")
     if not frame then return end

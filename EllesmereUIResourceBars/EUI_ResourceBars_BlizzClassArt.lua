@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_ResourceBars_BlizzClassArt.lua
 -- "Blizzard Class Resource Art": Blizzard's own class resource frame (Holy
 -- Power, Combo Points, Chi, Soul Shards, Arcane Charges, Essence, Runes) stands
@@ -86,7 +87,7 @@ end
 -- wherever its resource is absent, and our own bar keeps the slot then.
 local function WantedBar(sp)
     if not (sp and sp.blizzardClassArt) or sp.enabled == false then return nil end
-    if EllesmereUI.IS_FOREVER then return nil end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return nil end
     if UFOwns() then return nil end
     return ClassFrame()
 end
@@ -401,7 +402,7 @@ _G._ERB_BlizzArtHeld = function() return heldBar ~= nil end
 -- player frame's class resource, "resource" = no frame for this class, or the
 -- current class resource is one Blizzard draws as a bar or not at all.
 function ns.ERB_BlizzClassArtSupported()
-    if EllesmereUI.IS_FOREVER then return false, "client" end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return false, "client" end
     local bar = ClassFrame()
     if not bar then return false, "resource" end
     if UFOwns() then return false, "uf" end

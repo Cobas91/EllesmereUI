@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 local GetSpecialization = (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization) or GetSpecialization
 local addonName, ns = ...
 if not (EllesmereUI and EllesmereUI._ModuleNS and EllesmereUI.NewCombatQueue) then EUI_CLIENT_BLOCKED = true; return end -- stale-parent guard: a partially updated install (old parent, new child) goes dormant via the line-1 failsafe instead of erroring
@@ -8,9 +9,21 @@ local math_floor, math_ceil, math_max, math_min, math_abs =
     math.floor, math.ceil, math.max, math.min, math.abs
 local string_format = string.format
 local issecretvalue = issecretvalue
+-- CurveConstants (retail-only bare global, pre-built 0-1 -> 0-100 curves) does not
+-- exist on Classic Era and is not part of the core compat shim's namespace list
+-- (it's a bare global, not a C_* table). Build the one curve this module needs
+-- locally via the real C_CurveUtil.CreateCurve() polyfill so UnitHealthPercent/
+-- UnitPowerPercent still scale to a 0-100 percent instead of 0-1.
+local EUI_ScaleTo100 = (CurveConstants and CurveConstants.ScaleTo100)
+if not EUI_ScaleTo100 and C_CurveUtil and C_CurveUtil.CreateCurve then
+    EUI_ScaleTo100 = C_CurveUtil.CreateCurve()
+    EUI_ScaleTo100:SetType(Enum.LuaCurveType.Linear)
+    EUI_ScaleTo100:AddPoint(0, 0)
+    EUI_ScaleTo100:AddPoint(1, 100)
+end
 -- WoW Forever: no number under 10,000 abbreviates (EllesmereUI_NumberFormat.lua).
 -- Also on ns for the options preview, whose builder is near its upvalue cap.
-local AbbreviateNumbers = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
+local AbbreviateNumbers = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
 ns.AbbreviateNumbers = AbbreviateNumbers
 
 local PP = EllesmereUI.PP
@@ -278,7 +291,7 @@ local defaults = {
             namePosition = "left",
             healthTextPosition = "right",
             leftTextContent = "name",
-            rightTextContent = (EllesmereUI.IS_FOREVER == true) and "perhp" or "both",  -- WoW Forever: Health % (retail: Health # | %)
+            rightTextContent = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "perhp" or "both",  -- WoW Forever: Health % (retail: Health # | %)
             leftTextSize = 12,
             leftTextX = 0,
             leftTextY = 0,
@@ -422,13 +435,13 @@ local defaults = {
             -- there (Forever combo points belong to the target and Blizzard's
             -- classic ComboFrame cannot follow our target frame); the 8 default
             -- lands at a 3px sliver. Per-client defaults, never seeded.
-            showClassPowerBar = (EllesmereUI.IS_FOREVER == true) and true or false,
+            showClassPowerBar = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and true or false,
             lockClassPowerToFrame = true,
-            classPowerStyle = (EllesmereUI.IS_FOREVER == true) and "modern" or "none",
-            classPowerPosition = (EllesmereUI.IS_FOREVER == true) and "above" or "top",
+            classPowerStyle = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "modern" or "none",
+            classPowerPosition = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "above" or "top",
             classPowerBarX = 0,
             classPowerBarY = 0,
-            classPowerSize = (EllesmereUI.IS_FOREVER == true) and 16 or 8,
+            classPowerSize = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 16 or 8,
             classPowerSpacing = 2,
             classPowerClassColor = true,
             classPowerCustomColor = { r = 1, g = 0.82, b = 0 },
@@ -585,8 +598,8 @@ local defaults = {
             namePosition = "left",
             healthTextPosition = "right",
             -- WoW Forever shows level and name on the left (retail: name only).
-            leftTextContent = (EllesmereUI.IS_FOREVER == true) and "levelname" or "name",
-            rightTextContent = (EllesmereUI.IS_FOREVER == true) and "perhp" or "both",  -- WoW Forever: Health % (retail: Health # | %)
+            leftTextContent = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "levelname" or "name",
+            rightTextContent = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "perhp" or "both",  -- WoW Forever: Health % (retail: Health # | %)
             leftTextSize = 12,
             leftTextX = 0,
             leftTextY = 0,
@@ -879,7 +892,7 @@ local defaults = {
             highlightColor = { r = 1, g = 1, b = 1 },
             -- WoW Forever pets have power (hunter pet focus, warlock pet mana), so
             -- the pet frame carries a power bar there (retail: none).
-            powerPosition = (EllesmereUI.IS_FOREVER == true) and "below" or "none",
+            powerPosition = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "below" or "none",
             powerHeight = 6,
             powerWidth = 0,
             powerX = 0,
@@ -972,7 +985,7 @@ local defaults = {
             castBorderBehind = false,
             healthDisplay = "perhp",
             -- WoW Forever shows level and name on the left (retail: name only).
-            leftTextContent = (EllesmereUI.IS_FOREVER == true) and "levelname" or "name",
+            leftTextContent = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "levelname" or "name",
             rightTextContent = "perhp",
             leftTextSize = 12,
             leftTextX = 0,
@@ -1799,6 +1812,34 @@ do
     -- it declines and the flat class/reaction fill already on the bar stands.
     -- (The Raid Frames twin greys out instead; keeping the real color is
     -- strictly better here, and only differs on focus/ToT-style units.)
+    -- Classic Era has no secret-value combat-log security model at all: every
+    -- unit's health is always a plain, directly-readable number. Bypass the
+    -- curve/UnitHealthPercent machinery entirely and read UnitHealth/UnitHealthMax
+    -- straight into the already-verified clean resolvers below (built for the
+    -- options-preview swatches, and hand-matched to the curves above).
+    if EllesmereUI.IS_CLASSIC_ERA then
+        function ns.UF_DynamicHealthColor(unit, s)
+            local mode = s and s.healthColorMode
+            if not mode or mode == "none" or not unit then return false end
+            local maxHP = UnitHealthMax(unit)
+            if not maxHP or maxHP <= 0 then return false end
+            local pct = UnitHealth(unit) / maxHP
+            if pct < 0 then pct = 0 elseif pct > 1 then pct = 1 end
+            local r, g, b
+            if mode == "classic" then
+                r, g, b = ns.UF_ResolveClassicColor(pct)
+            elseif mode == "customDynamic" then
+                r, g, b = ns.UF_ResolveDynamicColor(s, pct)
+            elseif mode == "classReactive" then
+                local _, classToken = UnitClass(unit)
+                if not classToken then return false end
+                r, g, b = ns.UF_ResolveClassReactiveColor(s, classToken, pct)
+            else
+                return false
+            end
+            return true, r, g, b, false
+        end
+    else
     function ns.UF_DynamicHealthColor(unit, s)
         local mode = s and s.healthColorMode
         if not mode or mode == "none" or not unit then return false end
@@ -1819,6 +1860,7 @@ do
         if not (color and color.GetRGB) then return false end
         local r, g, b = color:GetRGB()
         return true, r, g, b, issecretvalue(r)
+    end
     end
 
     -- Clean-number twins for the options previews, where the health percent is a
@@ -2439,7 +2481,7 @@ local function DecimalAbbrevConfig(d)
 end
 -- WoW Forever: nothing under 10,000 abbreviates, so the k band starts there and
 -- the thousand band goes (the shared engine's trim, EllesmereUI_NumberFormat.lua).
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     local bands = DecimalAbbrevConfig
     DecimalAbbrevConfig = function(d)
         local cfg = bands(d)
@@ -2544,7 +2586,7 @@ do
       if not scaled then return "0" end
       return AbbreviateNumbers(scaled, trim.cfg)
     end
-    local pct = UnitHealthPercent(unit, true, CurveConstants.ScaleTo100)
+    local pct = UnitHealthPercent(unit, true, EUI_ScaleTo100)
     if not pct then return "0" end
     if boss then return string_format("%.2f", pct) end
     return string_format(_G._EUI_TextDecimals and "%.1f" or "%d", pct)
@@ -2582,7 +2624,7 @@ function EllesmereUI.GetPlayerPowerOverride()
     local _, classFile = UnitClass("player")
     -- WoW Forever has no retail specs, so the spec tables below never apply
     -- there: only the druid "Power Type: Mana" choice, under its own string key.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         if classFile ~= "DRUID" then return nil end
         local ov = db.profile.player and db.profile.player.powerTypeOverride
         return (ov and ov.foreverDruid) and 0 or nil
@@ -2997,7 +3039,7 @@ do
     -- engine still runs).
     P.perpp = function(u)
         local pType = _G._EUI_ResolvedPowerType[u] or UnitPowerType(u)
-        return sf("%d", UnitPowerPercent(u, pType, true, CurveConstants.ScaleTo100))
+        return sf("%d", UnitPowerPercent(u, pType, true, EUI_ScaleTo100))
     end
     P.curpp = function(u)
         local pType = _G._EUI_ResolvedPowerType[u] or UnitPowerType(u)
@@ -3345,7 +3387,7 @@ end
 --- it answers before InitializeFrames and while a change waits to apply.
 --- On ns for the 200-locals cap.
 function ns.UF_OwnsBlizzClassPower()
-    if EllesmereUI.IS_FOREVER == true then return false end
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then return false end
     -- Held right now (runtime), even while the config says otherwise: a style or
     -- source change not applied yet (combat, a pending reload) keeps it ours.
     if ns._ufBlizzCPHeld then return true end
@@ -4843,7 +4885,7 @@ function ns.UF_ArmPortraitDragonEvents()
     end
     ev:RegisterEvent("PLAYER_ENTERING_WORLD")
     if t then ev:RegisterEvent("PLAYER_TARGET_CHANGED") end
-    if f then ev:RegisterEvent("PLAYER_FOCUS_CHANGED") end
+    if f then EUI_SafeRegisterEvent(ev, "PLAYER_FOCUS_CHANGED") end
     if t and f then
         ev:RegisterUnitEvent("UNIT_CLASSIFICATION_CHANGED", "target", "focus")
     else
@@ -7862,7 +7904,7 @@ local function CreatePowerBar(frame, unit, settings)
             -- Percent for mana-based specs, numeric otherwise; resolved at apply
             -- time and re-applied on spec change via ReloadAndUpdate. WoW Forever
             -- passes the player's forced power (druid Mana) so it follows the bar.
-            local isPercent = EUI_IsSmartPowerPercent(unit == "player" and EllesmereUI.IS_FOREVER == true
+            local isPercent = EUI_IsSmartPowerPercent(unit == "player" and (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)
                 and EllesmereUI.GetPlayerPowerOverride() or nil)
             if isPercent then
                 ns.SetTextZoneRaw(frame, ppFS, "%s" .. pctSuffix, { TP.perpp })
@@ -9383,7 +9425,7 @@ end
 --  defines none of it). The watcher carries no events until
 --  SetThreatPctEnabled(true).
 -------------------------------------------------------------------------------
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     -- Inside spots sit on the health bar; outside spots sit beside the whole
     -- frame (past an attached portrait), centred on its height.
     local POS = {
@@ -9468,7 +9510,7 @@ if EllesmereUI.IS_FOREVER then
             if on then
                 watcher:RegisterUnitEvent("UNIT_THREAT_LIST_UPDATE", "target", "focus")
                 watcher:RegisterEvent("PLAYER_TARGET_CHANGED")
-                watcher:RegisterEvent("PLAYER_FOCUS_CHANGED")
+                EUI_SafeRegisterEvent(watcher, "PLAYER_FOCUS_CHANGED")
                 watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
             else
                 watcher:UnregisterAllEvents()
@@ -10196,7 +10238,7 @@ end
 -- WoW Forever pets have power (hunter pet focus, warlock pet mana), so there the
 -- pet frame carries a power bar driven by the pet's own power settings, laid out
 -- like the boss frames'. A plain boolean, fixed per session.
-ns.UF_PetHasPower = (EllesmereUI.IS_FOREVER == true)
+ns.UF_PetHasPower = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true))
 
 local function StyleSimpleFrame(frame, unit)
     local settings = GetSettingsForUnit(unit)
@@ -10758,7 +10800,7 @@ local FOREVER_CLASS_POWER = {
 }
 
 local function ClassPowerEntry(playerClass)
-    if EllesmereUI.IS_FOREVER == true then return FOREVER_CLASS_POWER[playerClass] end
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then return FOREVER_CLASS_POWER[playerClass] end
     return CLASS_POWER_TYPES[playerClass]
 end
 
@@ -10768,7 +10810,7 @@ local function DruidNeedsCatForm(playerClass, powerType)
     if playerClass ~= "DRUID" or powerType ~= Enum.PowerType.ComboPoints then
         return false
     end
-    if EllesmereUI.IS_FOREVER == true then return true end
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then return true end
     local spec = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization()
     local specID = spec and C_SpecializationInfo.GetSpecializationInfo(spec)
     return specID == 104 or specID == 105
@@ -11131,7 +11173,7 @@ local function CreateCustomClassPower(playerFrame, style)
             -- PLAYER_TARGET_CHANGED fires (measured on 1.60.1: up=3 while
             -- gcp=0 on the swap), with no later event to correct it. Blizzard's
             -- own classic ComboFrame reads GetComboPoints for the same reason.
-            if EllesmereUI.IS_FOREVER == true and powerType == Enum.PowerType.ComboPoints
+            if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and powerType == Enum.PowerType.ComboPoints
                and GetComboPoints then
                 cur = GetComboPoints("player", "target") or 0
             else
@@ -11266,7 +11308,7 @@ local function CreateCustomClassPower(playerFrame, style)
         eventFrame:RegisterUnitEvent("UNIT_MAXPOWER", "player")
         eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
         if powerType == Enum.PowerType.Runes then
-            eventFrame:RegisterEvent("RUNE_POWER_UPDATE")
+            EUI_SafeRegisterEvent(eventFrame, "RUNE_POWER_UPDATE")
         end
         local druidFormToggle = DruidNeedsCatForm(playerClass, powerType)
         if druidFormToggle then
@@ -11275,7 +11317,7 @@ local function CreateCustomClassPower(playerFrame, style)
         -- Combo points belong to the target on Forever, so swapping targets
         -- changes the count with no power event behind it. Blizzard's own
         -- ComboFrame refreshes on this event for the same reason.
-        if EllesmereUI.IS_FOREVER == true and powerType == Enum.PowerType.ComboPoints then
+        if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and powerType == Enum.PowerType.ComboPoints then
             eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
         end
         eventFrame:SetScript("OnEvent", function(_, event, unit)
@@ -11644,7 +11686,7 @@ end
 -- has no Blizzard class resource bar to adopt, so a saved "blizzard" builds
 -- as modern there. Read-side only: the saved style is never rewritten.
 -- nil on every other client (readers test the field).
-if EllesmereUI.IS_FOREVER == true then
+if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
     function ns.UF_ForeverCPStyle(style)
         if style == "blizzard" and not ns.UF_Forever() then return "modern" end
         return style
@@ -12255,9 +12297,9 @@ function ns.UF_ApplyBlizzFrameArt(frame, G)
             ns._ufBlizzArtFrames = {}
             local ev = CreateFrame("Frame")
             ev:RegisterEvent("PLAYER_TARGET_CHANGED")
-            ev:RegisterEvent("PLAYER_FOCUS_CHANGED")
+            EUI_SafeRegisterEvent(ev, "PLAYER_FOCUS_CHANGED")
             ev:RegisterEvent("PLAYER_ENTERING_WORLD")
-            ev:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+            EUI_SafeRegisterEvent(ev, "INSTANCE_ENCOUNTER_ENGAGE_UNIT")
             ev:RegisterUnitEvent("UNIT_CLASSIFICATION_CHANGED", "target", "focus")
             ev:RegisterUnitEvent("UNIT_FACTION", "target", "focus")
             ev:SetScript("OnEvent", function()
@@ -12523,9 +12565,9 @@ function ns.UF_BlizzLevelPass(frame)
             ns._ufBlizzLevelFrames = {}
             local ev = CreateFrame("Frame")
             ev:RegisterEvent("PLAYER_TARGET_CHANGED")
-            ev:RegisterEvent("PLAYER_FOCUS_CHANGED")
+            EUI_SafeRegisterEvent(ev, "PLAYER_FOCUS_CHANGED")
             ev:RegisterEvent("PLAYER_ENTERING_WORLD")
-            ev:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+            EUI_SafeRegisterEvent(ev, "INSTANCE_ENCOUNTER_ENGAGE_UNIT")
             ev:RegisterEvent("PLAYER_LEVEL_UP")
             ev:RegisterEvent("UNIT_LEVEL")
             ev:RegisterEvent("UNIT_FACTION")
@@ -15035,7 +15077,7 @@ end
 -- options setters reach it through ReloadAndUpdate) and it is safe to call
 -- directly; it returns at once off WoW Forever.
 function ns.UF_ApplyPetHappiness()
-    if EllesmereUI.IS_FOREVER ~= true then return end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) ~= true then return end
     local pf = frames.pet
     local s = db.profile.pet
     local h = pf and pf._petHappy
@@ -15505,6 +15547,16 @@ function ns.HealthVisibilityAlpha(s, frame, baseAlpha, hoverGated, inCombat)
     if hoverGated and frame._healthVisHovered then
         baseAlpha = ns.ResolveFrameAlpha(s, inCombat)
     end
+    if EllesmereUI.IS_CLASSIC_ERA then
+        -- Classic Era: no secret-value system, so this Step-curve lookup (full
+        -- health -> baseAlpha, anything else -> 1) is just a plain comparison
+        -- against UnitHealth/UnitHealthMax read directly.
+        local unit = frame._euiUnit
+        local maxHP = UnitHealthMax(unit)
+        local pct = (maxHP and maxHP > 0) and (UnitHealth(unit) / maxHP) or 0
+        if pct >= 1 then return baseAlpha end
+        return 1
+    end
     if not frame._healthVisCurve then
         frame._healthVisCurve = C_CurveUtil.CreateCurve()
         frame._healthVisCurve:SetType(Enum.LuaCurveType.Step)
@@ -15562,7 +15614,7 @@ function ns.SyncHealthVisibilityEvents()
         if focus then units[#units + 1] = "focus" end
         eventFrame:RegisterUnitEvent("UNIT_HEALTH", unpack(units))
         eventFrame:RegisterUnitEvent("UNIT_MAXHEALTH", unpack(units))
-        if focus then eventFrame:RegisterEvent("PLAYER_FOCUS_CHANGED") end
+        if focus then EUI_SafeRegisterEvent(eventFrame, "PLAYER_FOCUS_CHANGED") end
     end
 end
 
@@ -15845,7 +15897,7 @@ function InitializeFrames()
     if not frames._cbSuppressFrame then
         frames._cbSuppressFrame = CreateFrame("Frame")
         frames._cbSuppressFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-        frames._cbSuppressFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
+        EUI_SafeRegisterEvent(frames._cbSuppressFrame, "EDIT_MODE_LAYOUTS_UPDATED")
         frames._cbSuppressFrame:SetScript("OnEvent", function()
             -- Deferred: EDIT_MODE_LAYOUTS_UPDATED dispatches from inside Edit Mode's own
             -- operations; applying suppression state there writes cast bar state
@@ -16320,9 +16372,9 @@ function InitializeFrames()
     local cpSpecInitDone = false
     -- WoW Forever keys the class resource by class alone (ClassPowerEntry), so
     -- a spec event there can never change the bar: no teardown on it.
-    if EllesmereUI.IS_FOREVER ~= true then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) ~= true then
         cpSpecWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
-        cpSpecWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+        EUI_SafeRegisterEvent(cpSpecWatcher, "PLAYER_SPECIALIZATION_CHANGED")
     end
     cpSpecWatcher:SetScript("OnEvent", function(_, event, unit)
         if event == "PLAYER_ENTERING_WORLD" then
@@ -16424,7 +16476,7 @@ function InitializeFrames()
     -- "Blizzard" class resource asks for exactly that arc, which Blizzard's own
     -- target frame then keeps). The hidden parent is pinned for the session,
     -- like every frame HandleFrame takes.
-    if EllesmereUI.IS_FOREVER == true and _G.ComboFrame
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and _G.ComboFrame
        and (targetFrameSource ~= "blizzard"
             or (classPowerStyle ~= "none" and classPowerStyle ~= "blizzard")) then
         ns.UF_HideBlizzardFrame(_G.ComboFrame)
@@ -17581,25 +17633,25 @@ function InitializeFrames()
         frames._visFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
         frames._visFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
         frames._visFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-        frames._visFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+        EUI_SafeRegisterEvent(frames._visFrame, "PLAYER_MOUNT_DISPLAY_CHANGED")
         frames._visFrame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
         -- Resting: IsResting() has no dedicated poll, so without this the Resting
         -- axis only re-evaluated when some unrelated event above happened to fire.
         frames._visFrame:RegisterEvent("PLAYER_UPDATE_RESTING")
         -- Vehicle edges for the In Vehicle axis (player-filtered; same reasoning).
-        frames._visFrame:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-        frames._visFrame:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+        EUI_SafeRegisterUnitEvent(frames._visFrame, "UNIT_ENTERED_VEHICLE", "player")
+        EUI_SafeRegisterUnitEvent(frames._visFrame, "UNIT_EXITED_VEHICLE", "player")
         frames._visFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
         frames._visFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
         -- The focus-target mini mirrors the focus frame's alpha below, so a
         -- focus set while the pass last saw that frame hidden left the mini at
         -- alpha 0 until some other trigger ran. Same deferral as target changes.
-        frames._visFrame:RegisterEvent("PLAYER_FOCUS_CHANGED")
+        EUI_SafeRegisterEvent(frames._visFrame, "PLAYER_FOCUS_CHANGED")
         -- Dragonriding visibility modes: capability edge plus the airborne
         -- edge (probed at load in EllesmereUI_Visibility.lua)
-        frames._visFrame:RegisterEvent("PLAYER_CAN_GLIDE_CHANGED")
+        EUI_SafeRegisterEvent(frames._visFrame, "PLAYER_CAN_GLIDE_CHANGED")
         if EllesmereUI._hasGlidingEvent then
-            frames._visFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
+            EUI_SafeRegisterEvent(frames._visFrame, "PLAYER_IS_GLIDING_CHANGED")
         end
     end
     frames._visFrame:SetScript("OnEvent", function(_, event)
@@ -17625,7 +17677,7 @@ function InitializeFrames()
     if not frames._portraitBorderUpdater then
         frames._portraitBorderUpdater = CreateFrame("Frame")
         frames._portraitBorderUpdater:RegisterEvent("PLAYER_TARGET_CHANGED")
-        frames._portraitBorderUpdater:RegisterEvent("PLAYER_FOCUS_CHANGED")
+        EUI_SafeRegisterEvent(frames._portraitBorderUpdater, "PLAYER_FOCUS_CHANGED")
     end
     frames._portraitBorderUpdater:SetScript("OnEvent", function(_, event)
         local unitKey = (event == "PLAYER_TARGET_CHANGED") and "target" or "focus"
@@ -17658,7 +17710,7 @@ function InitializeFrames()
     ---------------------------------------------------------------------------
     if not frames._portraitArtUpdater then
         frames._portraitArtUpdater = CreateFrame("Frame")
-        frames._portraitArtUpdater:RegisterEvent("PORTRAITS_UPDATED")
+        EUI_SafeRegisterEvent(frames._portraitArtUpdater, "PORTRAITS_UPDATED")
     end
     frames._portraitArtUpdater:SetScript("OnEvent", function()
         for _, frame in pairs(frames) do
@@ -17695,7 +17747,7 @@ function InitializeFrames()
     if not frames._miniTextClassUpdater then
         frames._miniTextClassUpdater = CreateFrame("Frame")
         frames._miniTextClassUpdater:RegisterEvent("PLAYER_TARGET_CHANGED")
-        frames._miniTextClassUpdater:RegisterEvent("PLAYER_FOCUS_CHANGED")
+        EUI_SafeRegisterEvent(frames._miniTextClassUpdater, "PLAYER_FOCUS_CHANGED")
         frames._miniTextClassUpdater:RegisterUnitEvent("UNIT_TARGET", "target", "focus")
         frames._miniTextClassUpdater:RegisterUnitEvent("UNIT_PET", "player")
     end
@@ -17745,8 +17797,8 @@ function InitializeFrames()
     if not frames._bossTargetBorderUpdater then
         frames._bossTargetBorderUpdater = CreateFrame("Frame")
         frames._bossTargetBorderUpdater:RegisterEvent("PLAYER_TARGET_CHANGED")
-        frames._bossTargetBorderUpdater:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
-        frames._bossTargetBorderUpdater:RegisterEvent("UNIT_TARGETABLE_CHANGED")
+        EUI_SafeRegisterEvent(frames._bossTargetBorderUpdater, "INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+        EUI_SafeRegisterEvent(frames._bossTargetBorderUpdater, "UNIT_TARGETABLE_CHANGED")
         frames._bossTargetBorderUpdater:RegisterEvent("PLAYER_ENTERING_WORLD")
     end
     frames._bossTargetBorderUpdater:SetScript("OnEvent", ns.UpdateBossTargetBorders)
@@ -19130,7 +19182,7 @@ do
         if role == "HEALER" then helpSpell = HELP_HEAL[pClass] end
         -- WoW Forever has no spec roles: a healing class counts as its healing
         -- spec and range-checks with its best heal in the spellbook.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local list = EllesmereUI.FOREVER_HEAL_SPELLS[pClass]
             for i = 1, (list and #list or 0) do
                 if Known(list[i]) then helpSpell = list[i]; break end
@@ -19212,7 +19264,7 @@ do
     local ev = CreateFrame("Frame")
     ev:RegisterEvent("PLAYER_LOGIN")
     ev:RegisterEvent("PLAYER_ENTERING_WORLD")
-    ev:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(ev, "PLAYER_SPECIALIZATION_CHANGED")
     ev:SetScript("OnEvent", function()
         ResolveRangeSpells()
         InstallHooks()

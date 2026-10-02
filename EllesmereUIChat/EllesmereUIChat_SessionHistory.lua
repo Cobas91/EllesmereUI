@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIChat_SessionHistory.lua
 --
@@ -72,8 +73,13 @@ local function SessionHistorySafe()
 end
 
 local function InOpenWorld()
-    -- Housing plots register as "scenario" but chat is unrestricted there
-    if C_Housing and C_Housing.IsInsideHouseOrPlot and C_Housing.IsInsideHouseOrPlot() then
+    -- Housing plots register as "scenario" but chat is unrestricted there.
+    -- Midnight 12.0 player housing has no Classic Era concept at all, so this
+    -- condition is simply never true there (the stub's IsInsideHouseOrPlot
+    -- always answers false, but the IS_CLASSIC_ERA check documents that this
+    -- is a real "never applies" rather than an unresolved stub call).
+    if not EllesmereUI.IS_CLASSIC_ERA
+        and C_Housing and C_Housing.IsInsideHouseOrPlot and C_Housing.IsInsideHouseOrPlot() then
         return true
     end
     local inInstance, instanceType = IsInInstance()
@@ -339,17 +345,34 @@ local function ResolveBNetTokens(text)
     if not text:find("|K", 1, true) then return text end
     local map
     local numFriends = BNGetNumFriends and BNGetNumFriends()
-    if numFriends and C_BattleNet and C_BattleNet.GetFriendAccountInfo then
-        for i = 1, numFriends do
-            local acc = C_BattleNet.GetFriendAccountInfo(i)
-            local tokenName = acc and acc.accountName
-            local tag = acc and acc.battleTag
-            if tokenName ~= nil and not (issecretvalue and issecretvalue(tokenName))
-               and type(tokenName) == "string" and tokenName:find("|K", 1, true)
-               and tag ~= nil and not (issecretvalue and issecretvalue(tag))
-               and type(tag) == "string" and tag ~= "" then
-                map = map or {}
-                map[tokenName] = tag
+    -- C_BattleNet is native on Classic Era 1.15.x (the installed Classic Era
+    -- ElvUI reads it unguarded in Game/Shared), so the modern path is used
+    -- there too. The old multi-return BNGetFriendInfo global is kept only as a
+    -- fallback for a client that lacks C_BattleNet.GetFriendAccountInfo.
+    if numFriends then
+        if C_BattleNet and C_BattleNet.GetFriendAccountInfo then
+            for i = 1, numFriends do
+                local acc = C_BattleNet.GetFriendAccountInfo(i)
+                local tokenName = acc and acc.accountName
+                local tag = acc and acc.battleTag
+                if tokenName ~= nil and not (issecretvalue and issecretvalue(tokenName))
+                   and type(tokenName) == "string" and tokenName:find("|K", 1, true)
+                   and tag ~= nil and not (issecretvalue and issecretvalue(tag))
+                   and type(tag) == "string" and tag ~= "" then
+                    map = map or {}
+                    map[tokenName] = tag
+                end
+            end
+        elseif BNGetFriendInfo then
+            for i = 1, numFriends do
+                local _, tokenName, tag = BNGetFriendInfo(i)
+                if tokenName ~= nil and not (issecretvalue and issecretvalue(tokenName))
+                   and type(tokenName) == "string" and tokenName:find("|K", 1, true)
+                   and tag ~= nil and not (issecretvalue and issecretvalue(tag))
+                   and type(tag) == "string" and tag ~= "" then
+                    map = map or {}
+                    map[tokenName] = tag
+                end
             end
         end
     end
@@ -518,8 +541,11 @@ local function ArmDeferredRestore(token)
     deferFrame:SetScript("OnEvent", onDefer)
     deferFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     deferFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    if C_ChallengeMode then
-        deferFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+    -- No Mythic+ on Classic Era: C_ChallengeMode is a stubbed TABLE (truthy),
+    -- not nil, so a bare "if C_ChallengeMode" would wrongly register a
+    -- CHALLENGE_MODE_COMPLETED listener that can never fire there.
+    if not EllesmereUI.IS_CLASSIC_ERA and C_ChallengeMode then
+        EUI_SafeRegisterEvent(deferFrame, "CHALLENGE_MODE_COMPLETED")
     end
 end
 

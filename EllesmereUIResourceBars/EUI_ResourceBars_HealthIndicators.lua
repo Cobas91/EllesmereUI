@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ResourceBars_HealthIndicators.lua
 --  Health bar overlays, each off by default: damage absorbs and heal absorbs
@@ -63,9 +64,9 @@ local function WantEvent(event, want)
     if registered[event] == want then return end
     registered[event] = want
     if want then
-        eventFrame:RegisterUnitEvent(event, "player")
+        EUI_SafeRegisterUnitEvent(eventFrame, event, "player")
     else
-        eventFrame:UnregisterEvent(event)
+        EUI_SafeUnregisterEvent(eventFrame, event)
     end
 end
 

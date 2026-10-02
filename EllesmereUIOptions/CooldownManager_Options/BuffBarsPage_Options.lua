@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  CooldownManager_Options\BuffBarsPage_Options.lua
 --  Cooldown Manager options: the Tracking Bars page with its state, preview
@@ -553,7 +554,7 @@ local function InitBuffBarsPage(PP, DB, Refresh, FONT_PATH, GetCDMOptOutline, Ga
     ns.OnTBBSpecChanged = HandleTBBSpecChange
 
     local _tbbSpecWatcher = CreateFrame("Frame")
-    _tbbSpecWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(_tbbSpecWatcher, "PLAYER_SPECIALIZATION_CHANGED")
     _tbbSpecWatcher:SetScript("OnEvent", HandleTBBSpecChange)
 
     -- Bars auto-added while the panel sits on Tracking Bars (e.g. user drags a new spell

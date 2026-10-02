@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_Minimap_Options.lua
 --  Registers the Minimap module with EllesmereUI.
@@ -682,7 +683,7 @@ initFrame:SetScript("OnEvent", function(self)
             -- WoW Forever has no Great Vault and no keystone portals: the module
             -- never builds those two buttons there, so the list offers Friends
             -- Online only (a saved order still carrying the keys is skipped below).
-            if EllesmereUI.IS_FOREVER then
+            if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                 EXTRA_BTN_LABELS.greatVault, EXTRA_BTN_LABELS.portals = nil, nil
                 EXTRA_BTN_DEFAULT_ORDER = { "friendsOnline" }
             end
@@ -754,7 +755,7 @@ initFrame:SetScript("OnEvent", function(self)
                 local m = MinimapDB(); if not m then return end
                 m.openMicroMenuOnMiddleClick = v
               end }
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             _, h = W:DualRow(parent, y, middleClickCfg, { type="label", text="" })
         else
             _, h = W:DualRow(parent, y, portalsScaleCfg, middleClickCfg)
@@ -929,7 +930,7 @@ initFrame:SetScript("OnEvent", function(self)
         -- Legacy fallback mirrors the runtime: pre-dropdown data carries the
         -- showOmniumFolio toggle (default ON; only false is ever stored).
         -- No expansion landing page on WoW Forever: the row is not built there.
-        if not EllesmereUI.IS_FOREVER then
+        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local function OmniumMode()
             local m = MinimapDB()
             if not m then return "always" end
@@ -1580,7 +1581,7 @@ initFrame:SetScript("OnEvent", function(self)
         local HOVER_TT_ORDER = { "none", "lockouts", "vault" }
         -- No Great Vault on WoW Forever: the entry is dropped and a saved "vault"
         -- shows as None (the module reads it as none too and never rewrites it).
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             HOVER_TT_VALUES.vault = nil
             HOVER_TT_ORDER = { "none", "lockouts" }
         end
@@ -1591,7 +1592,7 @@ initFrame:SetScript("OnEvent", function(self)
               disabledTooltip="Show FPS/MS",
               getValue=function()
                 local m = MinimapDB(); local v = m and m.fpsHoverTooltip or "none"
-                if EllesmereUI.IS_FOREVER and v == "vault" then v = "none" end
+                if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and v == "vault" then v = "none" end
                 return v
               end,
               setValue=function(v)
@@ -1605,7 +1606,7 @@ initFrame:SetScript("OnEvent", function(self)
               disabledTooltip="Clock Style",
               getValue=function()
                 local m = MinimapDB(); local v = m and m.clockHoverTooltip or "none"
-                if EllesmereUI.IS_FOREVER and v == "vault" then v = "none" end
+                if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and v == "vault" then v = "none" end
                 return v
               end,
               setValue=function(v)

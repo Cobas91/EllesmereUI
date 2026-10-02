@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_Profiles.lua
 --
@@ -196,7 +197,7 @@ local AB_BAREWORD = {
 }
 -- WoW Forever never registers the House Favor bar: classify it statically
 -- there so its anchor and size-match links keep travelling in exports.
-if EllesmereUI.IS_FOREVER == true then AB_BAREWORD.FavorBar = true end
+if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then AB_BAREWORD.FavorBar = true end
 local UF_BAREWORD = {
     player=true, target=true, focus=true, pet=true, targettarget=true,
     focustarget=true, boss=true, classPower=true,
@@ -1816,7 +1817,7 @@ function EllesmereUI.ProfileChangesStyle(profileData)
     for i = 1, #STYLE_FLAGS do
         local f = STYLE_FLAGS[i]
         local mns = reg[f.folder]
-        if mns and not (f.retailOnly and EllesmereUI.IS_FOREVER) then
+        if mns and not (f.retailOnly and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) then
             local cur = RenderedStyleOf(f, mns)
             if cur ~= nil then
                 local incoming = profileData.addons[f.data or f.folder]
@@ -1847,7 +1848,7 @@ function EllesmereUI.RenderedLook()
     for i = 1, #STYLE_FLAGS do
         local f = STYLE_FLAGS[i]
         local mns = reg[f.folder]
-        if mns and not (f.retailOnly and EllesmereUI.IS_FOREVER) then
+        if mns and not (f.retailOnly and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) then
             local cur = RenderedStyleOf(f, mns)
             if cur == "blizzard" and not f.forever and EllesmereUI.IS_FOREVER then
                 eitherBlizz = f
@@ -1883,7 +1884,7 @@ local EXPORT_PREFIX = "!EUI_"
 --- "forever" on WoW Forever, nothing on retail, so every older string reads
 --- as retail. Transport only: no import ever stores it in a profile.
 function EllesmereUI.StampPayloadClient(payload)
-    if EllesmereUI.IS_FOREVER then payload.client = "forever" end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then payload.client = "forever" end
     return payload
 end
 
@@ -1892,7 +1893,7 @@ end
 --- imported: the import runs exactly as for a string that carries none.
 function EllesmereUI.PayloadFromOtherClient(payload)
     local from = type(payload) == "table" and payload.client or nil
-    return (from or "retail") ~= (EllesmereUI.IS_FOREVER and "forever" or "retail")
+    return (from or "retail") ~= ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and "forever" or "retail")
 end
 
 --- The reload prompt text after an import, plus one line when the string
@@ -1912,7 +1913,7 @@ end
 --- the class's first retail key, which retail reads and Forever resolves.
 --- Modifies the caller's own snapshot table in place. Retail: no-op.
 function EllesmereUI.ForeverAliasCDMSpecs(snap)
-    if not EllesmereUI.IS_FOREVER or type(snap) ~= "table" then return end
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) or type(snap) ~= "table" then return end
     local classes = EllesmereUI.ForeverClasses()
     for c = 1, #classes do
         local token = classes[c]
@@ -1931,7 +1932,7 @@ end
 --- Inherited keys after that one, and classes the string does not carry, are
 --- kept. Touches only the new bucket the import is building. Retail: no-op.
 function EllesmereUI.ForeverDropShadowedLegacy(inherited, incoming)
-    if not EllesmereUI.IS_FOREVER or type(inherited) ~= "table" or type(incoming) ~= "table" then return end
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) or type(inherited) ~= "table" or type(incoming) ~= "table" then return end
     local classes = EllesmereUI.ForeverClasses()
     for c = 1, #classes do
         local token = classes[c]
@@ -2697,7 +2698,7 @@ do
         end
         -- WoW Forever: the grid has one row per class, so a key saved under a
         -- class's Forever spec ID ticks, locks or disables that class's row.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             preCheckedSpecs = EllesmereUI.ForeverExpandSpecSet(preCheckedSpecs)
             lockedOnSpecs   = EllesmereUI.ForeverExpandSpecSet(lockedOnSpecs)
             disabledSpecs   = EllesmereUI.ForeverExpandSpecSet(disabledSpecs)
@@ -2722,7 +2723,7 @@ do
                     selected[tostring(specID)] = true
                 end
                 -- WoW Forever: class rows -> the store keys each class uses.
-                if EllesmereUI.IS_FOREVER then
+                if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                     wipe(selected)
                     EllesmereUI.ForeverCDMSelection(assignments, opts, selected)
                 end
@@ -3943,7 +3944,7 @@ do
     local pendingOverrideOldSpec = nil -- outgoing spec for a combat-deferred Spec Overrides transition
     local specRetryTimer = nil        -- retry handle for new characters
 
-    specFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(specFrame, "PLAYER_SPECIALIZATION_CHANGED")
     specFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     specFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     specFrame:SetScript("OnEvent", function(_, event, unit)
@@ -4661,6 +4662,10 @@ function EllesmereUI.ApplyPresetEditMode(layoutString, layoutName)
     if type(layoutString) ~= "string" or layoutString == "" then return false end
     if not layoutName or layoutName == "" then return false end
     if InCombatLockdown() then return false end
+    -- Classic Era has no Edit Mode at all (EditModeManagerFrame doesn't exist,
+    -- C_EditMode is a ClassicCompat stub). Bail before touching either rather
+    -- than relying on the stub resolving safely several calls deep.
+    if EllesmereUI.IS_CLASSIC_ERA then return false end
     local mgr = EditModeManagerFrame
     if not (C_EditMode and C_EditMode.ConvertStringToLayoutInfo and C_EditMode.GetLayouts
         and C_EditMode.SaveLayouts and C_EditMode.SetActiveLayout) then return false end

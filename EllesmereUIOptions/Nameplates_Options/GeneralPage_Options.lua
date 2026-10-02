@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  Nameplates_Options\GeneralPage_Options.lua
 --  Nameplates options: the General page (BuildGeneralPage). Definitions only;
@@ -1205,7 +1206,7 @@ local function BuildGeneralPage(pageName, parent, yOffset)
     end
 
     -- Row 7 (WoW Forever warriors only): Show Sunder Armor.
-    if EllesmereUI.IS_FOREVER and select(2, UnitClass("player")) == "WARRIOR" then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and select(2, UnitClass("player")) == "WARRIOR" then
         _, h = W:DualRow(parent, y,
             { type="toggle", text="Show Sunder Armor",
               tooltip="Shows Sunder Armor and its stacks on enemy nameplates, including stacks applied by other warriors.",

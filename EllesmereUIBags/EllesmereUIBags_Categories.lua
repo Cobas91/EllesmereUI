@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIBags_Categories.lua
 --  Category system based on Enum.ItemClass numeric IDs (locale-safe).
@@ -439,7 +440,14 @@ local function BuildSetGearLookup()
         if locs then
             for _, loc in pairs(locs) do
                 if loc and loc ~= 0 and loc ~= 1 and loc ~= -1 then
-                    local data = EquipmentManager_GetLocationData(loc)
+                    local data = EquipmentManager_GetLocationData and EquipmentManager_GetLocationData(loc)
+                    if not data then
+                        -- Classic Era has no EquipmentManager_GetLocationData: decode the
+                        -- location bitfield directly (bags bit 0x200000, bag in bits 8-15,
+                        -- slot in bits 0-7).
+                        local isBags = math.floor(loc / 0x200000) % 2 == 1
+                        data = { isBags = isBags, bag = math.floor(loc / 256) % 256, slot = loc % 256 }
+                    end
                     if data.isBags then
                         local key = data.bag * 1000 + data.slot
                         if not _setGearLookup[key] then _setGearLookup[key] = setID end

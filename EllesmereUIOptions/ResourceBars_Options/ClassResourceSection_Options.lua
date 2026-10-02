@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  ResourceBars_Options\ClassResourceSection_Options.lua
 --  Resource Bars options: CLASS RESOURCE BAR section builder. Definitions only; the shared
@@ -97,7 +98,7 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
     -- Guardian Ironfur + Prot Ignore Pain special bars stay global at runtime (stored on
     -- DB().secondary, not per-spec); the row shows for the active spec.
     -- Retail only: WoW Forever has none of these specs.
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local function _IsGuardianDruid()
             local _, cf = UnitClass("player")
             if cf ~= "DRUID" then return false end
@@ -1229,7 +1230,7 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
             -- WoW Forever: one row per class, keyed by its class token, standing for
             -- every retail spec of the class (the getter and setter expand it). A row
             -- locks while any spec of its class is claimed.
-            if EllesmereUI.IS_FOREVER then
+            if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                 local classes = EllesmereUI.ForeverClasses()
                 for n = 1, #classes do
                     local token = classes[n]
@@ -1390,7 +1391,7 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
 						function(key)
 							if key == CR_ROLE_HEALERS or key == CR_ROLE_TANKS or key == CR_ROLE_DPS then return false end
 							-- WoW Forever class row: checked while every spec of the class is selected
-							local fvIDs = EllesmereUI.IS_FOREVER and EllesmereUI.ForeverClassSpecIDs(key)
+							local fvIDs = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverClassSpecIDs(key)
 							if fvIDs then
 								for i = 1, #fvIDs do
 									if not _tempSpecSel[fvIDs[i]] then return false end
@@ -1416,7 +1417,7 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
 								return
 							end
 							-- WoW Forever class row: selects or clears every spec of the class
-							local fvIDs = EllesmereUI.IS_FOREVER and EllesmereUI.ForeverClassSpecIDs(key)
+							local fvIDs = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverClassSpecIDs(key)
 							if fvIDs then
 								if val then _tempSpecSel[0] = nil end
 								for i = 1, #fvIDs do _tempSpecSel[fvIDs[i]] = val and true or nil end
@@ -1513,9 +1514,9 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
 							local curIdx = C_SpecializationInfo.GetSpecialization()
 							local curSpecID = curIdx and C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo(curIdx)
 							-- WoW Forever: the entry covers the player when it names a spec of the class.
-							if curSpecID or EllesmereUI.IS_FOREVER then
+							if curSpecID or (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
 								for _, sid in ipairs(ids) do
-									if sid == curSpecID or (EllesmereUI.IS_FOREVER and EllesmereUI.IsPlayerSpec(sid)) then
+									if sid == curSpecID or ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.IsPlayerSpec(sid)) then
 										local gsr = _G._ERB_GetSecondaryResource
 										local info = gsr and gsr()
 										if info and info.power == "FOCUS_BAR" then
@@ -2212,7 +2213,7 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
 								-- draw the card's hash lines, so the Ironfur bar exception is retail only.
 								-- Retail keeps the row while the card holds hash lines, so lines saved
 								-- on WoW Forever can be cleared.
-								if s == 104 and not EllesmereUI.IS_FOREVER and (ent.hashValues == nil or ent.hashValues == "") then isGuardian = true end
+								if s == 104 and not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and (ent.hashValues == nil or ent.hashValues == "") then isGuardian = true end
 								if s == 73 then isIgnorePain = true end
 								if s == 581 then isVengeance = true end
 							end
@@ -2309,7 +2310,7 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
 							local _, _, _, _, _, classFile = GetSpecializationInfoByID(specID)
 							local _, playerClass = UnitClass("player")
 							talentClassOK = (classFile == playerClass)
-						elseif specID and specID ~= 0 and EllesmereUI.IS_FOREVER then
+						elseif specID and specID ~= 0 and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
 							talentClassOK = (EllesmereUI.SpecClassOf(specID) == select(2, UnitClass("player")))
 						end
 						talentRow._dis:SetShown(not talentClassOK)
@@ -2542,7 +2543,7 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
                     elseif firstSID and GetSpecializationInfoByID then
                         local _, _, _, _, _, cf = GetSpecializationInfoByID(firstSID)
                         classFile = cf
-                    elseif firstSID and EllesmereUI.IS_FOREVER then
+                    elseif firstSID and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                         classFile = EllesmereUI.SpecClassOf(firstSID)
                     end
                     local cc = classFile and CLASS_COLORS[classFile]
@@ -2695,10 +2696,10 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
                        refresh = RefreshSpecEntries, refreshDetail = RefreshDetail }
         if not ns._thrEventsFrame then
             local ev = CreateFrame("Frame")
-            ev:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-            ev:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
-            ev:RegisterEvent("TRAIT_CONFIG_UPDATED")
-            ev:RegisterEvent("PLAYER_TALENT_UPDATE")
+            EUI_SafeRegisterEvent(ev, "PLAYER_SPECIALIZATION_CHANGED")
+            EUI_SafeRegisterEvent(ev, "ACTIVE_TALENT_GROUP_CHANGED")
+            EUI_SafeRegisterEvent(ev, "TRAIT_CONFIG_UPDATED")
+            EUI_SafeRegisterEvent(ev, "PLAYER_TALENT_UPDATE")
             ev:SetScript("OnEvent", function(_, event)
                 local c = ns._thrCtx
                 if c and c.page and c.page:IsShown() then
@@ -2797,8 +2798,9 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
                 UpdateRechargeSwatch()
             end
         end
-        -- Retail only: WoW Forever hunters use mana and have no BM/MM specs.
-        if playerClass == "HUNTER" and not ctx.advanced and not EllesmereUI.IS_FOREVER then
+        -- Retail only: WoW Forever and Classic Era hunters use mana and have no BM/MM specs
+        -- (Focus doesn't exist as a resource on this client, so there's nothing to show "as Power").
+        if playerClass == "HUNTER" and not ctx.advanced and not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
             _, h = W:DualRow(parent, y,
                 { type = "toggle", text = "Show Focus as Power Bar (BM/MM)",
                   tooltip = "When enabled, BM and MM specs show Focus as the standard power bar instead of a class resource bar.",
@@ -2814,8 +2816,9 @@ function ns.ERB_BuildClassResourceSection(parent, y, ctx)
                   end },
                 { type = "label", text = "" }); y = y - h
         end
-        -- Retail only: WoW Forever has no Enhancement spec.
-        if playerClass == "SHAMAN" and not EllesmereUI.IS_FOREVER then
+        -- Retail only: WoW Forever and Classic Era have no Enhancement spec (no specializations
+        -- at all on Classic Era), so this spec-gated styling toggle has no sensible target to hide.
+        if playerClass == "SHAMAN" and not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
             -- Enhance 5-bar applies to Enhancement (specID 263) only, gated on the active spec
             local function _enhSpecOK()
                 return C_SpecializationInfo.GetSpecialization() == 2

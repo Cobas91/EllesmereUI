@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_Quickdraw_Options.lua  --  Settings page for the Quickdraw
 -------------------------------------------------------------------------------
@@ -731,7 +732,8 @@ initFrame:SetScript("OnEvent", function(self)
         -- The reagent bag is outside that range and easy to forget, but it is
         -- where a lot of players keep their potions and phials -- exactly the
         -- items someone puts on a palette.
-        ScanBag(Enum.BagIndex.ReagentBag)
+        -- No reagent bag on Classic Era (container 5 is a bank bag there).
+        if Enum.BagIndex.ReagentBag and not EllesmereUI.IS_CLASSIC_ERA then ScanBag(Enum.BagIndex.ReagentBag) end
         return out
     end
 
@@ -1825,7 +1827,8 @@ initFrame:SetScript("OnEvent", function(self)
             end
         end
         for bag = Enum.BagIndex.Backpack, NUM_BAG_SLOTS do ScanBag(bag) end
-        ScanBag(Enum.BagIndex.ReagentBag)
+        -- No reagent bag on Classic Era (container 5 is a bank bag there).
+        if Enum.BagIndex.ReagentBag and not EllesmereUI.IS_CLASSIC_ERA then ScanBag(Enum.BagIndex.ReagentBag) end
         return out
     end
 
@@ -1940,7 +1943,8 @@ initFrame:SetScript("OnEvent", function(self)
             end
         end
         for bag = Enum.BagIndex.Backpack, NUM_BAG_SLOTS do ScanBag(bag) end
-        ScanBag(Enum.BagIndex.ReagentBag)
+        -- No reagent bag on Classic Era (container 5 is a bank bag there).
+        if Enum.BagIndex.ReagentBag and not EllesmereUI.IS_CLASSIC_ERA then ScanBag(Enum.BagIndex.ReagentBag) end
 
         for i = 1, C_QuestLog.GetNumQuestLogEntries() do
             local info = C_QuestLog.GetInfo(i)

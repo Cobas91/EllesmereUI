@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  RaidFrames_Options\VisualIndicators_Options.lua
 --  Raid Frames options: the Indicators, Dispels, Top Name Bar, Friendly Boss
@@ -98,7 +99,7 @@ local function BuildVisualIndicators(parent, y, W, onSection, EYE, CustomBorderO
     -- WoW Forever: Missing Buffs, first in the section (runtime in
     -- EUI_RaidFrames_ForeverMissingBuffs.lua). The raid marker row's
     -- shape: Position (None turns it off) | Size, offsets in the cog.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local mbPositionValues = {
             none        = "None",
             topleft     = "Top Left",

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  Nameplates_Options\NameplatePreview_Options.lua
 --  Nameplates options: the enemy nameplate preview in the content header of
@@ -2191,7 +2192,7 @@ local function BuildNameplatePreview(parent, parentW)
             local cpInfo = CP.CLASS_MAP[playerClass]
             -- Match the module: vanilla content has only these two resources,
             -- so previewing the rest would promise pips that never appear.
-            if EllesmereUI.IS_FOREVER then
+            if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                 cpInfo = (playerClass == "ROGUE" or playerClass == "DRUID")
                     and CP.CLASS_MAP[playerClass] or nil
             end

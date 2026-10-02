@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 if EllesmereUI and EllesmereUI.IS_FOREVER then return end -- no keystones on WoW Forever: no /keys popup, no events, no slash commands; the options section is not built there and every reader nil-guards
 -------------------------------------------------------------------------------
 --  EllesmereUIQoL_Keys.lua

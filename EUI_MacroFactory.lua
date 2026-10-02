@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_MacroFactory.lua
 --  Builds the Macro Factory UI for the Quality of Life options page.
@@ -1434,7 +1435,7 @@ end
 
 EllesmereUI._macroSpecWatcher = EllesmereUI._macroSpecWatcher or CreateFrame("Frame")
 EllesmereUI._macroSpecWatcher:UnregisterAllEvents()
-EllesmereUI._macroSpecWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+EUI_SafeRegisterEvent(EllesmereUI._macroSpecWatcher, "PLAYER_SPECIALIZATION_CHANGED")
 EllesmereUI._macroSpecWatcher:SetScript("OnEvent", function()
     EllesmereUI.RefreshMacroFactory()
     -- Also re-run the active page's in-place widget refreshers so other

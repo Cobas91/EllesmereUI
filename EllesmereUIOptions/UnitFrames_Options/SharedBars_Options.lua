@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  UnitFrames_Options\SharedBars_Options.lua
 --  Unit Frames options: Health Bar, Power Bar, Class Resource and Absorbs sections of the
@@ -1904,7 +1905,7 @@ function ns.UFO_BuildPowerBarSection(parent, y, ctx)
         -- offsets (EUI_UnitFrames_ForeverFormBar.lua); unset, they follow
         -- the power text's.
         local _, cpClass = UnitClass("player")
-        if EllesmereUI.IS_FOREVER == true and optState.selectedUnit == "player" and cpClass == "DRUID" then
+        if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and optState.selectedUnit == "player" and cpClass == "DRUID" then
             local function NoFormBar() return not SVal("foreverFormBar", false) end
             local function FormOffset(key, base)
                 local v = SVal(key, nil)
@@ -2209,7 +2210,7 @@ function ns.UFO_BuildPowerBarSection(parent, y, ctx)
             end)
         end
     end
-    if optState.selectedUnit == "player" and EllesmereUI.IS_FOREVER == true then
+    if optState.selectedUnit == "player" and (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
         -- Mana Regen Spark (EllesmereUI_ManaRegenSpark.lua), the section's
         -- last row; warriors and rogues get no spark engine, so no row. A
         -- druid's Power Type shares it: one choice for every form, stored
@@ -2283,7 +2284,7 @@ function ns.UFO_BuildPowerBarSection(parent, y, ctx)
         local classAlts = SPEC_POWER_ALTS[playerClass]
         -- Retail only: these alternatives are retail spec resources, and the
         -- WoW Forever classes have no specs to key them on.
-        if classAlts and not EllesmereUI.IS_FOREVER then
+        if classAlts and not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local GetSpec = C_SpecializationInfo.GetSpecialization
             -- Labels follow the CURRENT spec: the page is built once and
             -- cached, so they are refilled on every spec change (see
@@ -2396,7 +2397,7 @@ function ns.UFO_BuildClassResourceSection(parent, y, ctx)
           -- Under the WoW Forever style the entry is the combo point arc
           -- round the target portrait instead, and stays live.
           disabledValues=function(k)
-              if k == "blizzard" and EllesmereUI.IS_FOREVER and not EllesmereUI.BlizzStyle.Forever("unitframes") then
+              if k == "blizzard" and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and not EllesmereUI.BlizzStyle.Forever("unitframes") then
                   return "This option requires the WoW Forever style."
               end
               -- One owner for Blizzard's class resource frame: while Resource

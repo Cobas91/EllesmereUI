@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- Blocks\Gold.lua
 -- Gold block factory and the shared session/character ledger.
 
@@ -109,7 +110,7 @@ local function UpdateGoldEvents()
         end
         goldEventFrame:RegisterEvent("PLAYER_MONEY")
         goldEventFrame:RegisterEvent("BAG_UPDATE")
-        goldEventFrame:RegisterEvent("TOKEN_MARKET_PRICE_UPDATED")
+        EUI_SafeRegisterEvent(goldEventFrame, "TOKEN_MARKET_PRICE_UPDATED")
     elseif goldEventFrame then
         goldEventFrame:UnregisterAllEvents()
     end

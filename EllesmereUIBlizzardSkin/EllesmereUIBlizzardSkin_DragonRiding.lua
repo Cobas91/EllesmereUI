@@ -1,5 +1,6 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
-if EllesmereUI and EllesmereUI.IS_FOREVER then return end -- no skyriding on WoW Forever: no DB, no events, no HUD; its options tab is not registered there
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+if EllesmereUI and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end -- no skyriding on WoW Forever: no DB, no events, no HUD; its options tab is not registered there
 -------------------------------------------------------------------------------
 --  EllesmereUIBlizzardSkin_DragonRiding.lua - Skyriding HUD
 -------------------------------------------------------------------------------
@@ -221,7 +222,7 @@ end
 local function RegisterSpellEvents()
     if not evtFrame then return end
     if not _spellEventsRegistered then
-        evtFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
+        EUI_SafeRegisterEvent(evtFrame, "SPELL_UPDATE_CHARGES")
         _spellEventsRegistered = true
     end
     local wantCd = db.profile.showWhirlingSurge ~= false
@@ -237,7 +238,7 @@ end
 local function UnregisterSpellEvents()
     if not evtFrame then return end
     if _spellEventsRegistered then
-        evtFrame:UnregisterEvent("SPELL_UPDATE_CHARGES")
+        EUI_SafeUnregisterEvent(evtFrame, "SPELL_UPDATE_CHARGES")
         _spellEventsRegistered = false
     end
     if _cdEventRegistered then
@@ -1664,9 +1665,9 @@ initFrame:SetScript("OnEvent", function(self)
 
     evtFrame = CreateFrame("Frame")
     evtFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-    evtFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-    evtFrame:RegisterEvent("PLAYER_CAN_GLIDE_CHANGED")
-    evtFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
+    EUI_SafeRegisterEvent(evtFrame, "PLAYER_MOUNT_DISPLAY_CHANGED")
+    EUI_SafeRegisterEvent(evtFrame, "PLAYER_CAN_GLIDE_CHANGED")
+    EUI_SafeRegisterEvent(evtFrame, "PLAYER_IS_GLIDING_CHANGED")
     evtFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     evtFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     evtFrame:SetScript("OnEvent", function(_, event)
@@ -1707,9 +1708,9 @@ ns.edrRebuild = function()
         if not evtFrame then
             evtFrame = CreateFrame("Frame")
             evtFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-            evtFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
-            evtFrame:RegisterEvent("PLAYER_CAN_GLIDE_CHANGED")
-            evtFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
+            EUI_SafeRegisterEvent(evtFrame, "PLAYER_MOUNT_DISPLAY_CHANGED")
+            EUI_SafeRegisterEvent(evtFrame, "PLAYER_CAN_GLIDE_CHANGED")
+            EUI_SafeRegisterEvent(evtFrame, "PLAYER_IS_GLIDING_CHANGED")
             evtFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
             evtFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
             evtFrame:SetScript("OnEvent", function(_, event)

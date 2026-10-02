@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ResourceBars_Options.lua
 --  Registers the Resource Bars module with EllesmereUI
@@ -1957,7 +1958,7 @@ initFrame:SetScript("OnEvent", function(self)
         end
         local function EntryLabel_L(entry)
             -- WoW Forever: the shared card label (a class held whole reads as the class).
-            if EllesmereUI.IS_FOREVER then return ns.EntryLabel(entry) end
+            if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return ns.EntryLabel(entry) end
             if not entry or not entry.specIDs or #entry.specIDs == 0 then return "Unknown" end
             if entry.specIDs[1] == 0 then return "All Specs" end
             local names = {}
@@ -2088,7 +2089,7 @@ initFrame:SetScript("OnEvent", function(self)
             -- WoW Forever: one row per class, keyed by its class token, standing for
             -- every retail spec of the class (the getter and setter expand it); no
             -- role shortcuts. A row locks while any spec of its class is claimed.
-            if EllesmereUI.IS_FOREVER then
+            if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                 local classes = EllesmereUI.ForeverClasses()
                 for n = 1, #classes do
                     local token = classes[n]
@@ -2241,7 +2242,7 @@ initFrame:SetScript("OnEvent", function(self)
                     -- Role shortcuts never show as "checked"
                     if key == ROLE_ALL_HEALERS or key == ROLE_ALL_TANKS or key == ROLE_ALL_DPS then return false end
                     -- WoW Forever class row: checked while every spec of the class is selected
-                    local fvIDs = EllesmereUI.IS_FOREVER and EllesmereUI.ForeverClassSpecIDs(key)
+                    local fvIDs = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverClassSpecIDs(key)
                     if fvIDs then
                         for i = 1, #fvIDs do
                             if not _tempSpecSel[fvIDs[i]] then return false end
@@ -2268,7 +2269,7 @@ initFrame:SetScript("OnEvent", function(self)
                         return
                     end
                     -- WoW Forever class row: selects or clears every spec of the class
-                    local fvIDs = EllesmereUI.IS_FOREVER and EllesmereUI.ForeverClassSpecIDs(key)
+                    local fvIDs = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverClassSpecIDs(key)
                     if fvIDs then
                         if val then _tempSpecSel[0] = nil end
                         for i = 1, #fvIDs do _tempSpecSel[fvIDs[i]] = val and true or nil end
@@ -2360,9 +2361,9 @@ initFrame:SetScript("OnEvent", function(self)
                     local curIdx = C_SpecializationInfo.GetSpecialization()
                     local curSpecID = curIdx and C_SpecializationInfo.GetSpecializationInfo(curIdx)
                     -- WoW Forever: the entry covers the player when it names a spec of the class.
-                    if curSpecID or EllesmereUI.IS_FOREVER then
+                    if curSpecID or (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                         for _, sid in ipairs(ids) do
-                            if sid == curSpecID or (EllesmereUI.IS_FOREVER and EllesmereUI.IsPlayerSpec(sid)) then
+                            if sid == curSpecID or ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.IsPlayerSpec(sid)) then
                                 local _, token = UnitPowerType("player")
                                 if token == "MANA" or token == "FOCUS" or token == "ENERGY" then
                                     newEntry.thresholdPartialOnly = true
@@ -2864,7 +2865,7 @@ initFrame:SetScript("OnEvent", function(self)
                             local _, cf = UnitClass("player"); classFile = cf
                         elseif firstSID and GetSpecializationInfoByID then
                             local _, _, _, _, _, cf = GetSpecializationInfoByID(firstSID); classFile = cf
-                        elseif firstSID and EllesmereUI.IS_FOREVER then
+                        elseif firstSID and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                             classFile = EllesmereUI.SpecClassOf(firstSID)
                         end
                         local cc = classFile and CLASS_COLORS_L[classFile]

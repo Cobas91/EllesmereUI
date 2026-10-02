@@ -1,4 +1,5 @@
 ﻿if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_RaidFrames_ManagerPages.lua
 -- 12.1 redesigned manager options: the Debuff Manager page (sidebar of
 -- tiles with the undeletable Base Icons tile first) plus the Buff Manager v2
@@ -1965,7 +1966,7 @@ function ns.DMP_BuildPage(pageName, parent, yOffset)
     -- that class renders now: a group view resets to All Specs and a spec
     -- view follows its class's current bucket (it moves with the profile and
     -- when that bucket loses its last tile, per-spec disable or Base Icons off).
-    if EllesmereUI.IS_FOREVER and dmSpecSel ~= "allspecs" then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and dmSpecSel ~= "allspecs" then
         local m = type(dmSpecSel) == "string" and dmSpecSel:match("^spec(%d+)$")
         local cls = m and EllesmereUI.SpecClassOf(tonumber(m))
         dmSpecSel = (cls and ns.DM_ForeverKey and ns.DM_ForeverKey(cls)) or "allspecs"

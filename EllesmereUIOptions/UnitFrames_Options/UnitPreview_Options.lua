@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  UnitFrames_Options\UnitPreview_Options.lua
 --  Unit Frames options: the unit frame preview in the page header
@@ -1534,7 +1535,7 @@ function ns.UFO_BuildUnitPreview(parent, unitKey, side)
     -- WoW Forever: the pet's happiness icon (the happy face as the sample),
     -- placed each Update beside the frame as the live icon is. It sits on
     -- its own frame so the page's click overlay shows and hides with it.
-    if unitKey == "pet" and EllesmereUI.IS_FOREVER == true then
+    if unitKey == "pet" and (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
         local happyInd = CreateFrame("Frame", nil, pf)
         happyInd:SetFrameLevel(pf:GetFrameLevel() + 20)
         local happyTex = happyInd:CreateTexture(nil, "OVERLAY")

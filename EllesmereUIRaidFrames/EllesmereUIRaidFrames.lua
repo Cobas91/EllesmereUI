@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIRaidFrames.lua
 --  Custom raid frames built on SecureGroupHeaderTemplate.
@@ -164,7 +165,7 @@ local GetNumGroupMembers    = GetNumGroupMembers
 local C_Timer               = C_Timer
 local issecretvalue         = issecretvalue
 -- WoW Forever: no number under 10,000 abbreviates (EllesmereUI_NumberFormat.lua).
-local AbbreviateNumbers     = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
+local AbbreviateNumbers     = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
 local CreateFrame           = CreateFrame
 local RAID_CLASS_COLORS     = RAID_CLASS_COLORS
 
@@ -326,7 +327,7 @@ ns._COMBAT_CLASS_COORDS = EllesmereUI.CLASS_ICON_SPRITE_COORDS
 -------------------------------------------------------------------------------
 -- Level Text's default position: attached to the name on WoW Forever, None on
 -- retail (the per-client default rule; every fallback below reads it).
-ns.RF_LEVEL_DEFAULT = (EllesmereUI.IS_FOREVER == true) and "name" or "none"
+ns.RF_LEVEL_DEFAULT = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "name" or "none"
 local defaults = {
     profile = {
         -- Size & layout
@@ -577,14 +578,14 @@ local defaults = {
         pingMarkerOffsetY  = 0,
         -- WoW Forever: Missing Buffs (EUI_RaidFrames_ForeverMissingBuffs.lua).
         -- Forever-only defaults, absent on every other client.
-        showMissingBuffs     = (EllesmereUI.IS_FOREVER == true) and true or nil,
-        missingBuffsSize     = (EllesmereUI.IS_FOREVER == true) and 22 or nil,
-        missingBuffsPosition = (EllesmereUI.IS_FOREVER == true) and "top" or nil,
-        missingBuffsOffsetX  = (EllesmereUI.IS_FOREVER == true) and 0 or nil,
-        missingBuffsOffsetY  = (EllesmereUI.IS_FOREVER == true) and 0 or nil,
+        showMissingBuffs     = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and true or nil,
+        missingBuffsSize     = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 22 or nil,
+        missingBuffsPosition = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "top" or nil,
+        missingBuffsOffsetX  = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 0 or nil,
+        missingBuffsOffsetY  = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 0 or nil,
         -- Its icons' glow (shared prefix schema; 2 = Action Button Glow).
-        missingBuffsGlowType      = (EllesmereUI.IS_FOREVER == true) and 2 or nil,
-        missingBuffsGlowColorMode = (EllesmereUI.IS_FOREVER == true) and "default" or nil,
+        missingBuffsGlowType      = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and 2 or nil,
+        missingBuffsGlowColorMode = ((EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)) and "default" or nil,
         showReadyCheck   = true,
         showSummonPending = true,
         showIncomingRez  = true,
@@ -994,7 +995,7 @@ do
 
     local editModeWatcher = ns.TakeShell()
     editModeWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
-    editModeWatcher:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
+    EUI_SafeRegisterEvent(editModeWatcher, "EDIT_MODE_LAYOUTS_UPDATED")
     editModeWatcher:SetScript("OnEvent", function()
         C_Timer.After(0, applyEditModeOverlaySuppression)
     end)
@@ -3989,12 +3990,12 @@ do
     -- Register the per-click global events only while the feature is on (zero cost when off). Call on toggle.
     function ns.FRCM_Refresh()
         if db and db.profile and db.profile.freeRightClickCamera then
-            watcher:RegisterEvent("GLOBAL_MOUSE_DOWN")
-            watcher:RegisterEvent("GLOBAL_MOUSE_UP")
+            EUI_SafeRegisterEvent(watcher, "GLOBAL_MOUSE_DOWN")
+            EUI_SafeRegisterEvent(watcher, "GLOBAL_MOUSE_UP")
             watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
         else
-            watcher:UnregisterEvent("GLOBAL_MOUSE_DOWN")
-            watcher:UnregisterEvent("GLOBAL_MOUSE_UP")
+            EUI_SafeUnregisterEvent(watcher, "GLOBAL_MOUSE_DOWN")
+            EUI_SafeUnregisterEvent(watcher, "GLOBAL_MOUSE_UP")
             watcher:UnregisterEvent("PLAYER_REGEN_ENABLED")
             stopLook()
         end
@@ -6353,7 +6354,7 @@ FB.ShouldBeActive = function()
     if fb.display == "always" then return true end
     if fb.display == "healers" then
         -- WoW Forever: a class that can heal counts as its healing spec.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local _, pClass = UnitClass("player")
             return EllesmereUI.FOREVER_HEAL_SPELLS[pClass] ~= nil
         end
@@ -7098,7 +7099,7 @@ function ns.FB_Apply()
     local _, pClass = UnitClass("player")
     FB.rangeSpell = (role == "HEALER") and FB.RANGE_HEAL[pClass] or nil
     -- WoW Forever: a healing class range-checks with its best known heal.
-    if EllesmereUI.IS_FOREVER then FB.rangeSpell = FB.ForeverKnownHeal(pClass) end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then FB.rangeSpell = FB.ForeverKnownHeal(pClass) end
     if not FB.rangeSpell then
         for _, b in ipairs(FB.buttons) do b:SetAlpha(1) end
     else
@@ -7227,9 +7228,9 @@ end
 -- Standing event frame: exists even while inactive so a spec change can activate display="healers" without a /reload.
 do
     local ev = ns.TakeShell()
-    ev:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(ev, "PLAYER_SPECIALIZATION_CHANGED")
     ev:RegisterEvent("PLAYER_REGEN_ENABLED")
-    ev:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+    EUI_SafeRegisterEvent(ev, "INSTANCE_ENCOUNTER_ENGAGE_UNIT")
     ev:RegisterEvent("GROUP_ROSTER_UPDATE")
     ev:RegisterEvent("PLAYER_TARGET_CHANGED")
     ev:SetScript("OnEvent", function(_, event)
@@ -7748,7 +7749,7 @@ function ns.XF_Apply()
                 C_Timer.After(2, RetryName)
             end
             for _, ev in ipairs(XF.EVENTS) do
-                t:RegisterUnitEvent(ev, unit)
+                EUI_SafeRegisterUnitEvent(t, ev, unit)
             end
             -- UNIT_FLAGS is opt-in: extra frames mirror the raid combat-icon toggle.
             if db.profile.showCombatIndicator then
@@ -8054,11 +8055,11 @@ PF.SyncShownEvents = function()
     if PF.shownEv == want then return end
     PF.shownEv = want
     if want then
-        ev:RegisterEvent("UNIT_ENTERED_VEHICLE")
-        ev:RegisterEvent("UNIT_EXITED_VEHICLE")
+        EUI_SafeRegisterEvent(ev, "UNIT_ENTERED_VEHICLE")
+        EUI_SafeRegisterEvent(ev, "UNIT_EXITED_VEHICLE")
     else
-        ev:UnregisterEvent("UNIT_ENTERED_VEHICLE")
-        ev:UnregisterEvent("UNIT_EXITED_VEHICLE")
+        EUI_SafeUnregisterEvent(ev, "UNIT_ENTERED_VEHICLE")
+        EUI_SafeUnregisterEvent(ev, "UNIT_EXITED_VEHICLE")
     end
     for _, tr in ipairs(PF.trackers) do PF.TrackerEvents(tr, want) end
 end
@@ -8078,11 +8079,11 @@ PF.TrackerEvents = function(tr, on)
         f:UnregisterAllEvents()
         return
     end
-    for _, ev in ipairs(PF.EVENTS) do f:RegisterUnitEvent(ev, tr.u1, tr.u2) end
+    for _, ev in ipairs(PF.EVENTS) do EUI_SafeRegisterUnitEvent(f, ev, tr.u1, tr.u2) end
     if tr.u1 == "pet" then
-        f:RegisterUnitEvent("UNIT_IN_RANGE_UPDATE", tr.u2)
+        EUI_SafeRegisterUnitEvent(f, "UNIT_IN_RANGE_UPDATE", tr.u2)
     else
-        f:RegisterUnitEvent("UNIT_IN_RANGE_UPDATE", tr.u1, tr.u2)
+        EUI_SafeRegisterUnitEvent(f, "UNIT_IN_RANGE_UPDATE", tr.u1, tr.u2)
     end
 end
 
@@ -10709,8 +10710,8 @@ local function ReloadFrames(skipButtons)
     -- disabled option listens for nothing (runs no event code).
     if ns.UpdateCombatEventRegistration then ns.UpdateCombatEventRegistration() end
     -- Hide Groups 5-8 in Mythic Raid hears difficulty switches only while on.
-    if db.profile.mythicRaidHideGroups then eventFrame:RegisterEvent("PLAYER_DIFFICULTY_CHANGED")
-    else eventFrame:UnregisterEvent("PLAYER_DIFFICULTY_CHANGED") end
+    if db.profile.mythicRaidHideGroups then EUI_SafeRegisterEvent(eventFrame, "PLAYER_DIFFICULTY_CHANGED")
+    else EUI_SafeUnregisterEvent(eventFrame, "PLAYER_DIFFICULTY_CHANGED") end
     -- Rebuild dispel-color curves so custom-color edits take effect immediately.
     if ns._RebuildDispelCurves then ns._RebuildDispelCurves() end
     -- Recalculate active tier from current group size + overrides
@@ -14531,12 +14532,12 @@ ns.RF_KitPortraitEvents = function(on)
         end
     end
     if want and not was then
-        eventFrame:RegisterEvent("PORTRAITS_UPDATED")
+        EUI_SafeRegisterEvent(eventFrame, "PORTRAITS_UPDATED")
         -- 2D art and the kit socket repaint; a 3D model repaints on its own
         -- show edge (and on a settings swap through its cleared memos).
         if ns.RF_PtRepaintAll then ns.RF_PtRepaintAll("Resync") end
     elseif was and not want then
-        eventFrame:UnregisterEvent("PORTRAITS_UPDATED")
+        EUI_SafeUnregisterEvent(eventFrame, "PORTRAITS_UPDATED")
     end
 end
 
@@ -15745,15 +15746,15 @@ function ERF:OnEnable()
     eventFrame:RegisterEvent("READY_CHECK")
     eventFrame:RegisterEvent("READY_CHECK_CONFIRM")
     eventFrame:RegisterEvent("READY_CHECK_FINISHED")
-    eventFrame:RegisterEvent("INCOMING_SUMMON_CHANGED")
-    eventFrame:RegisterEvent("INCOMING_RESURRECT_CHANGED")
+    EUI_SafeRegisterEvent(eventFrame, "INCOMING_SUMMON_CHANGED")
+    EUI_SafeRegisterEvent(eventFrame, "INCOMING_RESURRECT_CHANGED")
     eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("PARTY_MEMBER_ENABLE")
     eventFrame:RegisterEvent("PARTY_MEMBER_DISABLE")
-    eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-    eventFrame:RegisterEvent("UNIT_PHASE")
+    EUI_SafeRegisterEvent(eventFrame, "PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(eventFrame, "UNIT_PHASE")
     eventFrame:RegisterEvent("ENCOUNTER_START")
     eventFrame:RegisterEvent("ENCOUNTER_END")
 
@@ -15770,9 +15771,9 @@ function ERF:OnEnable()
         local want = ns._RFPredWanted()
         for unit, tracker in pairs(unitTrackers) do
             if want then
-                tracker:RegisterUnitEvent("UNIT_HEAL_PREDICTION", unit)
+                EUI_SafeRegisterUnitEvent(tracker, "UNIT_HEAL_PREDICTION", unit)
             else
-                tracker:UnregisterEvent("UNIT_HEAL_PREDICTION")
+                EUI_SafeUnregisterEvent(tracker, "UNIT_HEAL_PREDICTION")
             end
         end
     end
@@ -15802,10 +15803,10 @@ function ERF:OnEnable()
         -- event tree to the parent addon for the whole session.
         local f = ns.TakeShell()
         for _, ev in ipairs(UNIT_EVENTS_BASE) do
-            f:RegisterUnitEvent(ev, unit)
+            EUI_SafeRegisterUnitEvent(f, ev, unit)
         end
         if ns._RFPredWanted() then
-            f:RegisterUnitEvent("UNIT_HEAL_PREDICTION", unit)
+            EUI_SafeRegisterUnitEvent(f, "UNIT_HEAL_PREDICTION", unit)
         end
         f:RegisterUnitEvent("UNIT_POWER_UPDATE", unit)
         f:RegisterUnitEvent("UNIT_DISPLAYPOWER", unit)

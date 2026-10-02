@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_UnitFrames_ForeverFormBar.lua  (WoW Forever only, druids only)
 --
@@ -22,7 +23,7 @@ if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_C
 -------------------------------------------------------------------------------
 local _, ns = ...
 local EllesmereUI = _G.EllesmereUI
-if not (EllesmereUI and EllesmereUI.IS_FOREVER) then return end
+if not (EllesmereUI and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) then return end
 local _, playerClass = UnitClass("player")
 if playerClass ~= "DRUID" then return end
 

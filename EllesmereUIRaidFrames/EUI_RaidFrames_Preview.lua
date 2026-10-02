@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_RaidFrames_Preview.lua
 --
@@ -753,7 +754,7 @@ ns._pvBuffAssignments = {}
 local function GetConfiguredBuffSpells()
     -- WoW Forever: this preview reads only the retired pre-v2 Buff Manager
     -- keys, which a profile there can still carry; it previews nothing there.
-    if EllesmereUI.IS_FOREVER then return {} end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return {} end
     if not db or not db.profile or not db.profile.bmIndicators then return {} end
     -- BM indicators are keyed by "CLASS_SPEC" strings (e.g. "PALADIN_HOLY").
     -- Resolve the player's spec via the shared, locale-independent helper (matches

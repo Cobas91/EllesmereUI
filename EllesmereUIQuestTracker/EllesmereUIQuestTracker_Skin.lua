@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 -- EllesmereUIQuestTracker_Skin.lua
 --
@@ -558,6 +559,13 @@ local function _computeClassification(questID)
     local freq = (info and info.frequency) or 0
     local done = C_QuestLog.IsComplete and C_QuestLog.IsComplete(questID) or false
 
+    -- CLASSIC ERA: C_CampaignInfo is a neutral stub (IsCampaignQuest always
+    -- false here) -- "Campaign" quest chains are a Retail-only (Dragonflight+)
+    -- categorization with no Classic equivalent. This only ever changes which
+    -- icon atlas key we pick below; it never excludes a quest from the
+    -- tracker, so the false result just falls through to the classification/
+    -- frequency checks and lands on "normal" (or daily/weekly), which is
+    -- correct -- every Classic Era quest is a plain quest.
     local key = "normal"
     if C_CampaignInfo and C_CampaignInfo.IsCampaignQuest
        and C_CampaignInfo.IsCampaignQuest(questID) then
@@ -727,24 +735,68 @@ end
 
 -- Super-tracked quest ID cache. Updated only on SUPER_TRACKING_CHANGED so hover
 -- handlers don't hit C_SuperTrack.GetSuperTrackedQuestID on every mouse enter/leave.
+--
+-- CLASSIC ERA: C_SuperTrack doesn't exist -- there is no single waypoint-arrow
+-- "super tracked" quest at all on this client. Fall back to the player's
+-- manually "watched" quest list (old GetNumQuestWatches/GetQuestIndexForWatch
+-- API, confirmed present on Classic Era) and treat the FIRST watched quest as
+-- the one to visually emphasize -- the closest analog to "the quest the player
+-- currently cares about". If nothing is watched, fall back further to the
+-- topmost quest in the quest log so the focus color isn't simply unused.
+-- Driven by QUEST_WATCH_UPDATE (Classic Era's real watch-list event, confirmed
+-- against ElvUI's and Questie's working Classic Era code) instead of the
+-- Retail-only SUPER_TRACKING_CHANGED.
 local _superTrackedID = nil
 local function GetSuperTrackedIDCached() return _superTrackedID end
+local function _ComputeClassicFocusQuestID()
+    if EllesmereUI and EllesmereUI.IS_CLASSIC_ERA then
+        if GetNumQuestWatches and GetQuestIndexForWatch then
+            local numWatches = GetNumQuestWatches() or 0
+            if numWatches > 0 then
+                local logIdx = GetQuestIndexForWatch(1)
+                local id = logIdx and C_QuestLog and C_QuestLog.GetQuestIDForLogIndex
+                    and C_QuestLog.GetQuestIDForLogIndex(logIdx)
+                if id and id ~= 0 then return id end
+            end
+        end
+        -- Nothing watched: topmost non-header entry in the quest log.
+        if C_QuestLog and C_QuestLog.GetInfo then
+            local num = C_QuestLog.GetNumQuestLogEntries and C_QuestLog.GetNumQuestLogEntries() or 0
+            for i = 1, num do
+                local info = C_QuestLog.GetInfo(i)
+                if info and not info.isHeader and info.questID then
+                    return info.questID
+                end
+            end
+        end
+        return nil
+    end
+    if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
+        local id = C_SuperTrack.GetSuperTrackedQuestID()
+        return (id and id ~= 0) and id or nil
+    end
+    return nil
+end
 do
     local sf = CreateFrame("Frame")
-    sf:RegisterEvent("SUPER_TRACKING_CHANGED")
+    if EllesmereUI and EllesmereUI.IS_CLASSIC_ERA then
+        sf:RegisterEvent("QUEST_WATCH_UPDATE")
+    else
+        EUI_SafeRegisterEvent(sf, "SUPER_TRACKING_CHANGED")
+    end
     sf:RegisterEvent("PLAYER_ENTERING_WORLD")
     sf:SetScript("OnEvent", function(_, event)
         -- The cached ID only colours our focus highlight, which the stock
         -- styles never paint.
-        if not STOCK and C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
-            local id = C_SuperTrack.GetSuperTrackedQuestID()
-            _superTrackedID = (id and id ~= 0) and id or nil
+        if not STOCK then
+            _superTrackedID = _ComputeClassicFocusQuestID()
         end
         -- Super-tracking assigns a fresh POI button to the block.
         -- Defer one frame so Blizzard's assignment lands first. Nothing to
         -- suppress while native icons show, unless the hidden tracker needs
         -- the fresh button mouse-off.
-        if event == "SUPER_TRACKING_CHANGED" and (not NativeIcons() or EQT._trackerMouseOff) then
+        if (event == "SUPER_TRACKING_CHANGED" or event == "QUEST_WATCH_UPDATE")
+           and (not NativeIcons() or EQT._trackerMouseOff) then
             C_Timer.After(0, function()
                 if not EQT._SuppressAllPOIs then return end
                 EQT._SuppressAllPOIs()
@@ -755,7 +807,9 @@ do
     if not EQT._eventRegistrations then EQT._eventRegistrations = {} end
     local idx = #EQT._eventFrames + 1
     EQT._eventFrames[idx] = sf
-    EQT._eventRegistrations[idx] = {"SUPER_TRACKING_CHANGED", "PLAYER_ENTERING_WORLD"}
+    EQT._eventRegistrations[idx] = (EllesmereUI and EllesmereUI.IS_CLASSIC_ERA)
+        and {"QUEST_WATCH_UPDATE", "PLAYER_ENTERING_WORLD"}
+        or {"SUPER_TRACKING_CHANGED", "PLAYER_ENTERING_WORLD"}
     EQT._superTrackFrameIdx = idx
 end
 
@@ -1596,12 +1650,22 @@ function EQT.InitSkin()
     if not STOCK then
     local evt = CreateFrame("Frame")
     evt:RegisterEvent("QUEST_LOG_UPDATE")
-    evt:RegisterEvent("QUEST_WATCH_LIST_CHANGED")
-    evt:RegisterEvent("SCENARIO_UPDATE")
-    evt:RegisterEvent("SCENARIO_CRITERIA_UPDATE")
-    evt:RegisterEvent("TRACKED_ACHIEVEMENT_LIST_CHANGED")
-    evt:RegisterEvent("TRACKED_RECIPE_UPDATE")
-    evt:RegisterEvent("SUPER_TRACKING_CHANGED")
+    -- CLASSIC ERA: QUEST_WATCH_LIST_CHANGED is the Retail event name; the real
+    -- Classic Era watch-list event is QUEST_WATCH_UPDATE (confirmed against
+    -- ElvUI's and Questie's working Classic Era code). The Retail event goes
+    -- through EUI_SafeRegisterEvent, which skips it where the client does not
+    -- know it (registering an unknown event is a Lua error on this client).
+    EUI_SafeRegisterEvent(evt, "QUEST_WATCH_LIST_CHANGED")
+    EUI_SafeRegisterEvent(evt, "QUEST_WATCH_UPDATE")
+    -- SCENARIO_UPDATE / SCENARIO_CRITERIA_UPDATE / SUPER_TRACKING_CHANGED:
+    -- no Scenarios or super-tracking on Classic Era, so these never fire here.
+    -- Registered through EUI_SafeRegisterEvent, which skips any event this
+    -- client does not know (a plain RegisterEvent would raise a Lua error).
+    EUI_SafeRegisterEvent(evt, "SCENARIO_UPDATE")
+    EUI_SafeRegisterEvent(evt, "SCENARIO_CRITERIA_UPDATE")
+    EUI_SafeRegisterEvent(evt, "TRACKED_ACHIEVEMENT_LIST_CHANGED")
+    EUI_SafeRegisterEvent(evt, "TRACKED_RECIPE_UPDATE")
+    EUI_SafeRegisterEvent(evt, "SUPER_TRACKING_CHANGED")
     -- Quest events just need a BG resize. Block skinning is handled by
     -- AddBlock/AddObjective/GetProgressBar/GetTimerBar hooks, so we no
     -- longer need to walk the entire tracker tree on every event. No combat

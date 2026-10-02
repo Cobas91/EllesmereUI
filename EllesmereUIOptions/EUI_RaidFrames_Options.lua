@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_RaidFrames_Options.lua
 --  Registers the Raid Frames module with EllesmereUI options panel.
@@ -10,7 +11,7 @@ local ns = EllesmereUI._ModuleNS[ADDON_NAME]  -- module namespace (published by 
 if not ns then return end  -- module disabled: no options page
 
 -- WoW Forever: the preview's numbers follow the live frames (EllesmereUI_NumberFormat.lua).
-local AbbreviateNumbers = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
+local AbbreviateNumbers = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateNumbers) or AbbreviateNumbers
 
 local PAGE_MAIN = "Frames"
 local PAGE_PARTY = "Party"
@@ -669,7 +670,7 @@ initFrame:SetScript("OnEvent", function(self)
     -- aware SVal/SWrite in the indicator's cog, the raid keys on Global
     -- Settings > Glows (built outside any tab, so never through the tab context).
     local MissingGlowDesc
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local GK = EllesmereUI.Glows.PrefixKeys("missingBuffsGlow")
         function MissingGlowDesc(read, write)
             return {

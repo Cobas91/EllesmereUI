@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIQoL_BattleRes.lua
 --  Runtime for the BattleRes icon. Polls GetSpellCharges(20484) and shows
@@ -475,7 +476,7 @@ ns.FormatTime = FormatTime
 -- (no DB, frame, events, unlock mover or _G._EUI_BattleRes_* hooks), even when
 -- a saved or imported profile has it enabled. Every reader of those hooks
 -- nil-guards, and the options section and Fonts rows are not built there.
-if EllesmereUI.IS_FOREVER then return end
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
 
 local _lastCountText, _lastDurText, _lastCountColor
 local function _setCount(s, isZero)
@@ -708,11 +709,11 @@ _syncEventRegistration = function()
         end
         _eventFrame:RegisterEvent("ENCOUNTER_START")
         _eventFrame:RegisterEvent("ENCOUNTER_END")
-        _eventFrame:RegisterEvent("CHALLENGE_MODE_START")
-        _eventFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
-        _eventFrame:RegisterEvent("CHALLENGE_MODE_RESET")
-        _eventFrame:RegisterEvent("WORLD_STATE_TIMER_START")
-        _eventFrame:RegisterEvent("WORLD_STATE_TIMER_STOP")
+        EUI_SafeRegisterEvent(_eventFrame, "CHALLENGE_MODE_START")
+        EUI_SafeRegisterEvent(_eventFrame, "CHALLENGE_MODE_COMPLETED")
+        EUI_SafeRegisterEvent(_eventFrame, "CHALLENGE_MODE_RESET")
+        EUI_SafeRegisterEvent(_eventFrame, "WORLD_STATE_TIMER_START")
+        EUI_SafeRegisterEvent(_eventFrame, "WORLD_STATE_TIMER_STOP")
         _eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
         ns.RefreshInstanceState(_state)
     else

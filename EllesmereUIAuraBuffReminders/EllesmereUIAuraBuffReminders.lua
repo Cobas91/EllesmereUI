@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIAuraBuffReminders.lua
 --  Raid Buffs, Auras, and Consumables reminders: clickable SecureActionButton icons
@@ -16,7 +17,10 @@ local EABR = EllesmereUI.Lite.NewAddon("EllesmereUIAuraBuffReminders")
 -- with every retail collector, its events and its options sections off. Both
 -- values live on EABR because this file sits at Lua's 200-local ceiling; retail
 -- reads FOREVER as false at each gate and nothing else changes there.
-EABR.FOREVER = EllesmereUI.IS_FOREVER == true
+-- Classic Era runs the same reduced module: its buffs carry one spell ID per
+-- rank, which the retail collectors (single retail IDs, flasks, augment runes,
+-- spec-gated class buffs) cannot match. Camp Benefits stays Forever-only.
+EABR.FOREVER = EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true
 EABR.CAMP_BENEFITS = 1229741
 
 local _B = {}  -- beacon state table, populated later
@@ -4173,7 +4177,7 @@ function EABR.CollectForever(missing, inInstance, inPvP, restricted)
     if not fo or not EABR.SectionShows(fo.whereToShow, inInstance) then return end
     local ids = EABR._foreverIDs
     if not ids then ids = {}; EABR._foreverIDs = ids end
-    if fo.camp ~= false and not inPvP and not restricted then
+    if fo.camp ~= false and not inPvP and not restricted and not EllesmereUI.IS_CLASSIC_ERA then
         ids[1] = EABR.CAMP_BENEFITS
         if not PlayerHasAuraByID(ids) then
             local e = AcquireEntry()
@@ -4819,7 +4823,16 @@ _B.BOL = 53563
 _B.BOF = 156910
 _B.VIRTUE = 200025
 _B.ALL = { _B.BOL, _B.BOF }
-local IsSpellOverlayed = (C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed) or IsSpellOverlayed
+-- Classic Era has no C_SpellActivationOverlay namespace, but the shim in
+-- EllesmereUI_ClassicCompat.lua still provides a (truthy, always-false) stub
+-- table for it, so the "or" below would never reach the real legacy global.
+-- The legacy bare IsSpellOverlayed global genuinely exists and works on
+-- Classic Era (confirmed via LibActionButton-1.0, which ships with the
+-- real, currently-installed Classic Era ElvUI and uses this identical
+-- fallback pattern) -- prefer it explicitly instead of the namespace stub.
+local IsSpellOverlayed = (EllesmereUI.IS_CLASSIC_ERA and _G.IsSpellOverlayed)
+    or (C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed)
+    or IsSpellOverlayed
 
 local function BeaconUpdateInstanceCache()
     local _, instanceType, difficultyID = GetInstanceInfo()
@@ -4838,14 +4851,14 @@ end
 local function BeaconUpdateOverlayEvents()
     if _B.cachedInInstance and _B.isPaladin then
         if not _B.overlayRegistered then
-            _B.frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-            _B.frame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+            EUI_SafeRegisterEvent(_B.frame, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+            EUI_SafeRegisterEvent(_B.frame, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
             _B.overlayRegistered = true
         end
     else
         if _B.overlayRegistered then
-            _B.frame:UnregisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-            _B.frame:UnregisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+            EUI_SafeUnregisterEvent(_B.frame, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+            EUI_SafeUnregisterEvent(_B.frame, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
             _B.overlayRegistered = false
         end
     end
@@ -5056,11 +5069,11 @@ if not EABR.FOREVER then
     _B.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
     _B.frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     _B.frame:RegisterEvent("SPELLS_CHANGED")
-    _B.frame:RegisterEvent("PLAYER_TALENT_UPDATE")
-    _B.frame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-    _B.frame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+    EUI_SafeRegisterEvent(_B.frame, "PLAYER_TALENT_UPDATE")
+    EUI_SafeRegisterEvent(_B.frame, "PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(_B.frame, "TRAIT_CONFIG_UPDATED")
     _B.frame:RegisterEvent("GROUP_ROSTER_UPDATE")
-    _B.frame:RegisterEvent("PLAYER_LEVEL_CHANGED")
+    EUI_SafeRegisterEvent(_B.frame, "PLAYER_LEVEL_CHANGED")
 end
 _B.frame:SetScript("OnEvent", function(_, e, id)
     if not _B.isPaladin then return end
@@ -5505,7 +5518,7 @@ function EABR:OnEnable()
             tracker:SetScript("OnEvent", _onRangeEvent)
             _rangeTrackers[unit] = tracker
         end
-        tracker:RegisterUnitEvent("UNIT_IN_RANGE_UPDATE", unit)
+        EUI_SafeRegisterUnitEvent(tracker, "UNIT_IN_RANGE_UPDATE", unit)
         tracker:RegisterUnitEvent("UNIT_CONNECTION", unit)
     end
 
@@ -5522,7 +5535,7 @@ function EABR:OnEnable()
 
     rangeFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     rangeFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
-    rangeFrame:RegisterEvent("UNIT_PHASE")
+    EUI_SafeRegisterEvent(rangeFrame, "UNIT_PHASE")
     rangeFrame:SetScript("OnEvent", function(_, event)
         if event == "UNIT_PHASE" then
             _onRangeEvent(nil, event)
@@ -5766,8 +5779,8 @@ if EABR.FOREVER then
     mainFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     mainFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     mainFrame:RegisterUnitEvent("UNIT_AURA", "player")
-    mainFrame:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-    mainFrame:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(mainFrame, "UNIT_ENTERED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(mainFrame, "UNIT_EXITED_VEHICLE", "player")
     mainFrame:RegisterEvent("PLAYER_DEAD")
     mainFrame:RegisterEvent("PLAYER_ALIVE")
     mainFrame:RegisterEvent("PLAYER_UNGHOST")
@@ -5779,21 +5792,21 @@ mainFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 mainFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 mainFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 mainFrame:RegisterEvent("SPELLS_CHANGED")
-mainFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
-mainFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-mainFrame:RegisterEvent("PLAYER_LEVEL_CHANGED")
-mainFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+EUI_SafeRegisterEvent(mainFrame, "PLAYER_TALENT_UPDATE")
+EUI_SafeRegisterEvent(mainFrame, "PLAYER_SPECIALIZATION_CHANGED")
+EUI_SafeRegisterEvent(mainFrame, "PLAYER_LEVEL_CHANGED")
+EUI_SafeRegisterEvent(mainFrame, "TRAIT_CONFIG_UPDATED")
 mainFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 mainFrame:RegisterUnitEvent("UNIT_AURA", "player")
 mainFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
-mainFrame:RegisterEvent("CHALLENGE_MODE_START")
-mainFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
-mainFrame:RegisterEvent("CHALLENGE_MODE_RESET")
+EUI_SafeRegisterEvent(mainFrame, "CHALLENGE_MODE_START")
+EUI_SafeRegisterEvent(mainFrame, "CHALLENGE_MODE_COMPLETED")
+EUI_SafeRegisterEvent(mainFrame, "CHALLENGE_MODE_RESET")
 mainFrame:RegisterEvent("BAG_UPDATE_DELAYED")
-mainFrame:RegisterEvent("WEAPON_ENCHANT_CHANGED")
-mainFrame:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-mainFrame:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
-mainFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+EUI_SafeRegisterEvent(mainFrame, "WEAPON_ENCHANT_CHANGED")
+EUI_SafeRegisterUnitEvent(mainFrame, "UNIT_ENTERED_VEHICLE", "player")
+EUI_SafeRegisterUnitEvent(mainFrame, "UNIT_EXITED_VEHICLE", "player")
+EUI_SafeRegisterEvent(mainFrame, "PLAYER_MOUNT_DISPLAY_CHANGED")
 mainFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 mainFrame:RegisterEvent("PLAYER_DEAD")
 mainFrame:RegisterEvent("PLAYER_ALIVE")

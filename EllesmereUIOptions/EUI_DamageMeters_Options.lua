@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_DamageMeters_Options.lua
 --  Options page for EllesmereUI Damage Meters.
@@ -1584,7 +1585,7 @@ initFrame:SetScript("OnEvent", function(self)
             { key = "iconHideOutOfInstance",   label = "Hide out of Instances" },
         }
         -- No delves on WoW Forever: the list drops its Delves entry there.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             for i = #SH_ICON_VIS_ITEMS, 1, -1 do
                 if SH_ICON_VIS_ITEMS[i].key == "iconHideInDelve" then table.remove(SH_ICON_VIS_ITEMS, i) end
             end
@@ -1697,7 +1698,7 @@ initFrame:SetScript("OnEvent", function(self)
             { key = "barHideOutOfInstance",   label = "Hide out of Instances" },
         }
         -- No delves on WoW Forever: the list drops its Delves entry there.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             for i = #SH_BAR_VIS_ITEMS, 1, -1 do
                 if SH_BAR_VIS_ITEMS[i].key == "barHideInDelve" then table.remove(SH_BAR_VIS_ITEMS, i) end
             end

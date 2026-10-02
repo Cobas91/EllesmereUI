@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_Textures_Options.lua
 --
@@ -132,7 +133,7 @@ local function TileActionBars(parent, y, W, tile)
         barTexCfg("XP Bar Texture", "XPBar"),
         barTexCfg("Reputation Bar Texture", "RepBar"));  y = y - h
     -- WoW Forever has no House Favor bar: its row is not built there.
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     _, h = W:DualRow(parent, y,
         barTexCfg("House Favor Bar Texture", "FavorBar"), BLANK());  y = y - h
     end -- not IS_FOREVER

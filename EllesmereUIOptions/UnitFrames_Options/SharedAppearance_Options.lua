@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  UnitFrames_Options\SharedAppearance_Options.lua
 --  Unit Frames options: Display, Portrait, Text Bar and Extras sections of the
@@ -952,7 +953,7 @@ function ns.UFO_BuildDisplaySection(parent, y, ctx)
     -- Threat % text (WoW Forever only): one profile-wide setting for both
     -- frames, drawn on the EllesmereUI frames only. Built before the
     -- half-empty Blizz header row so its blank stays the last slot.
-    if EllesmereUI.IS_FOREVER and (optState.selectedUnit == "target" or optState.selectedUnit == "focus") then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and (optState.selectedUnit == "target" or optState.selectedUnit == "focus") then
         local NO_FRAMES = "This option requires an EllesmereUI Target or Focus frame."
         local function noFrames() return not (frames.target or frames.focus) end
         local function pctOff() return noFrames() or not db.profile.threatPctEnabled end

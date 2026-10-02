@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 --------------------------------------------------------------------------------
 --  Character Sheet Socket Panel
 --
@@ -1296,7 +1297,7 @@ local function SeasonWatch(on)
     seasonWatch.on = on
     if on then
         seasonWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
-        seasonWatch:RegisterEvent("MYTHIC_PLUS_CURRENT_AFFIX_UPDATE")
+        EUI_SafeRegisterEvent(seasonWatch, "MYTHIC_PLUS_CURRENT_AFFIX_UPDATE")
     else
         seasonWatch:UnregisterAllEvents()
     end
@@ -1439,7 +1440,7 @@ boot:RegisterEvent("PLAYER_LOGIN")
 boot:SetScript("OnEvent", function()
     -- WoW Forever: part of the character sheet makeover, which stands down
     -- there (EllesmereUIBlizzardSkin_CharacterSheetForever.lua owns the sheet).
-    if EllesmereUI and EllesmereUI.IS_FOREVER then return end
+    if EllesmereUI and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
     -- The character sheet's Blizz Default (latched for the session): the
     -- strip hangs below Blizzard's sheet as a tab-art plate. Layout values
     -- switch here, before the lazy build reads them.
