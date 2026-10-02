@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 if EllesmereUI.IS_FOREVER then return end -- no Great Vault on WoW Forever: no factory, no keystone feed (the main file drops the block from BLOCK_TYPES too)
 -- Blocks\GreatVault.lua
 -- Great Vault block factory.
@@ -315,7 +316,7 @@ ns.BlockFactories.greatvault = function(blockCfg, slot, content, barCtx)
     button:RegisterForClicks("AnyUp")
 
     local icon = button:CreateTexture(nil, "OVERLAY")
-    icon:SetTexture(ns.MICROMENU_MEDIA .. "menu-vault.png")
+    K.SetBlockIcon(icon, blockCfg)
     local label = button:CreateFontString(nil, "OVERLAY")
     AttachTextOffset(inst, label)
 

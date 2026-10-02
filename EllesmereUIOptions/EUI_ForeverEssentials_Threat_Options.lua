@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 if not (EllesmereUI and EllesmereUI.IS_FOREVER) then return end -- Forever Essentials loads on WoW Forever only
 -------------------------------------------------------------------------------
 --  EUI_ForeverEssentials_Threat_Options.lua
@@ -271,8 +272,9 @@ _G._EUI_BuildThreatMeterPage = function(pageName, parent, yOffset)
 
         -- Toggle | Position, the Threat % cog on the dropdown. blocked (optional)
         -- greys the row with blockedTip; a toggle left on stays clickable so it
-        -- can still be turned off.
-        local function PctRow(text, tooltip, profile, apply, blocked, blockedTip)
+        -- can still be turned off. positions / positionOrder (optional) replace
+        -- the three inside spots.
+        local function PctRow(text, tooltip, profile, apply, blocked, blockedTip, positions, positionOrder)
             local function PGet(key) return profile()[key] end
             local function PSet(key, v)
                 profile()[key] = v
@@ -298,7 +300,8 @@ _G._EUI_BuildThreatMeterPage = function(pageName, parent, yOffset)
                       PSet("threatPctEnabled", v)
                       EllesmereUI:RefreshPage()
                   end },
-                { type = "dropdown", text = "Position", values = PCT_POSITIONS, order = PCT_POSITION_ORDER,
+                { type = "dropdown", text = "Position",
+                  values = positions or PCT_POSITIONS, order = positionOrder or PCT_POSITION_ORDER,
                   disabled = pctOff, disabledTooltip = pctOffTip,
                   getValue = function() return PGet("threatPctPosition") end,
                   setValue = function(v) PSet("threatPctPosition", v) end }
@@ -317,6 +320,7 @@ _G._EUI_BuildThreatMeterPage = function(pageName, parent, yOffset)
                     },
                 })
             end
+            return row, pctOff, pctOffTip
         end
 
         if hasNP then
@@ -326,14 +330,29 @@ _G._EUI_BuildThreatMeterPage = function(pageName, parent, yOffset)
                 function() np.RefreshThreatPct() end)
         end
         if hasUF then
-            PctRow("Show on Target & Focus Frames",
-                "Shows your threat percentage on the target and focus frames while you are in combat with that unit.",
+            -- The unit frames add the outside spots (the Unit Frames page's list).
+            local row, pctOff, pctOffTip = PctRow("Show on Target Frame",
+                "Shows your threat percentage on the target frame while you are in combat with it. The cog adds the focus frame.",
                 function() return uf.db.profile end,
                 function(key, v)
                     if key == "threatPctEnabled" then uf.SetThreatPctEnabled(v) else uf.RefreshThreatPct() end
                 end,
                 function() return not (uf.frames.target or uf.frames.focus) end,
-                "This option requires an EllesmereUI Target or Focus frame.")
+                "This option requires an EllesmereUI Target or Focus frame.",
+                uf._threatPctPositions, uf._threatPctPositionOrder)
+            if not EllesmereUI._prebuilding then
+                EllesmereUI.BuildInlineCog(row._leftRegion, {
+                    title = "Threat % Units", disabled = pctOff, disabledTooltip = pctOffTip,
+                    rows = {
+                        { type = "toggle", label = "Show on Focus",
+                          get = function() return uf.db.profile.threatPctFocus end,
+                          set = function(v)
+                              uf.db.profile.threatPctFocus = v
+                              uf.RefreshThreatPct()
+                          end },
+                    },
+                })
+            end
         end
 
         _, h = W:Spacer(parent, y, 20);  y = y - h

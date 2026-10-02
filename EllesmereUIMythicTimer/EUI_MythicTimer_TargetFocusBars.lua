@@ -1030,17 +1030,13 @@ local function MakeBarUnlockElement(which, label, order)
             cfg.height = math.floor(h + 0.5)
             ns.TFB_Refresh()
         end,
-        savePos = function()
+        savePos = function(_, _, _, x, y)
+            -- Unlock mode hands over CENTER/CENTER coords; on Cancel the frame
+            -- still sits at the dragged spot, so never read the live position.
             local cfg = BarCfg(which)
-            local bar = bars[which]
-            if not (cfg and bar and bar.frame:GetCenter()) then return end
-            local cx, cy = bar.frame:GetCenter()
-            local upX, upY = UIParent:GetCenter()
-            local fes = bar.frame:GetEffectiveScale() or 1
-            local ues = UIParent:GetEffectiveScale() or 1
-            local ratio = fes / ues
-            cfg.pos = { centerX = cx * ratio - upX, centerY = cy * ratio - upY }
-            if not EllesmereUI._unlockActive then ApplyBarPosition(bar) end
+            if not (cfg and x and y) then return end
+            cfg.pos = { centerX = x, centerY = y }
+            if not EllesmereUI._unlockActive then ApplyBarPosition(bars[which]) end
         end,
         loadPos = function()
             local cfg = BarCfg(which)

@@ -5029,3 +5029,74 @@ do
         end)
     end
 end
+
+--------------------------------------------------------------------------------
+--  WoW Forever: Nameplates Enemy Buff Filter to Show All (one-time).
+--  Show All is the WoW Forever default (every enemy buff, unfiltered). An
+--  account that already ran EllesmereUI there is moved to it once: the filter
+--  in every stored profile's Nameplates data and every Spec Override value
+--  stored for it (a stored "key not present" mark already reads the default).
+--  Profiles made afterwards start on the default and keep whatever is picked.
+--  Account flag, written before the pass; a brand-new account is marked once
+--  its saved data exists. Two client checks, as the blocks above.
+--------------------------------------------------------------------------------
+do
+    local FLAG = "forever_np_buff_showall_v1"
+    -- Spec Override value key: the module folder, "\31", then the key path
+    -- (EllesmereUI_SpecOverrides.lua's stored format), and its "not present"
+    -- mark.
+    local OVERRIDE_KEY = "EllesmereUINameplates\31npEnemyBuffFilter"
+    local NIL_SENT = "__SPECOV_NIL__"
+
+    local function ClientOK()
+        local toc = select(4, GetBuildInfo())
+        return EllesmereUI ~= nil and EllesmereUI.IS_FOREVER == true
+            and type(toc) == "number" and toc >= 16000 and toc < 20000
+    end
+
+    local function MoveProfile(prof)
+        if type(prof) ~= "table" then return end
+        local np = type(prof.addons) == "table" and prof.addons.EllesmereUINameplates
+        if type(np) == "table" then np.npEnemyBuffFilter = "showall" end
+        if type(prof.specOverrides) ~= "table" then return end
+        for _, entry in pairs(prof.specOverrides) do
+            local values = type(entry) == "table" and entry.values
+            if type(values) == "table" then
+                for _, bucket in pairs(values) do
+                    if type(bucket) == "table" then
+                        local v = bucket[OVERRIDE_KEY]
+                        if v ~= nil and v ~= NIL_SENT then bucket[OVERRIDE_KEY] = "showall" end
+                    end
+                end
+            end
+        end
+    end
+
+    if ClientOK() then
+        EllesmereUI.Lite.OnSavedVariablesLoaded(function()
+            if not ClientOK() then return end
+            local db = EllesmereUIDB
+            if type(db) ~= "table" then
+                -- A brand-new account: nothing to move. Marked at login, so
+                -- its own first session's choices are never overwritten.
+                local f = CreateFrame("Frame")
+                f:RegisterEvent("PLAYER_LOGIN")
+                f:SetScript("OnEvent", function(self)
+                    self:UnregisterAllEvents()
+                    local d = EllesmereUIDB
+                    if type(d) == "table" then
+                        if type(d._migrations) ~= "table" then d._migrations = {} end
+                        d._migrations[FLAG] = true
+                    end
+                end)
+                return
+            end
+            if type(db._migrations) ~= "table" then db._migrations = {} end
+            if db._migrations[FLAG] then return end
+            db._migrations[FLAG] = true
+            if type(db.profiles) == "table" then
+                for _, prof in pairs(db.profiles) do MoveProfile(prof) end
+            end
+        end)
+    end
+end

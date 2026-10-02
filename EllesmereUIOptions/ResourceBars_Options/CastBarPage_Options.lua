@@ -121,7 +121,7 @@ function ns.ERB_BuildCastBarPage(pageName, parent, yOffset)
           end }
     );  y = y - h
 
-    -- Row 3: Show Spell Icon (cog: Icon on Right) | Show Spark
+    -- Row 3: Show Spell Icon (cog: side, divider, size, offsets) | Show Spark
     local iconRow
     iconRow, h = W:DualRow(parent, y,
         { type = "toggle", text = "Show Spell Icon",
@@ -142,9 +142,22 @@ function ns.ERB_BuildCastBarPage(pageName, parent, yOffset)
               p.castBar.showSpark = v; RefreshCast()
           end }
     );  y = y - h
-    -- Inline cog on Show Spell Icon: Icon on Right
+    -- Inline cog on Show Spell Icon
     if not EllesmereUI._prebuilding then
         local rgn = iconRow._leftRegion
+        local FREE_TIP = "This option requires the icon at bar size with no offset."
+        local function IconFree() local p = DB(); return p and ns.ERB_CastIconFree(p.castBar) end
+        local function IconSlider(key, label, lo, hi, tooltip)
+            return { type = "slider", label = label, min = lo, max = hi, step = 1, tooltip = tooltip,
+                disabled = function() return EllesmereUI.BlizzStyle.Get("castbar") end,
+                disabledTooltip = function() return EllesmereUI.BlizzStyle.Label("castbar") end,
+                requireState = "disabled",
+                get = function() local p = DB(); return p and p.castBar[key] or 0 end,
+                set = function(v)
+                    local p = DB(); if not p then return end
+                    p.castBar[key] = v; RefreshCast()
+                end }
+        end
         EllesmereUI.BuildInlineCog(rgn, {
             disabled = function()
                 local p = DB(); return p and (not p.castBar.enabled or p.castBar.showIcon == false)
@@ -163,6 +176,7 @@ function ns.ERB_BuildCastBarPage(pageName, parent, yOffset)
                   end },
                 { type = "toggle", label = "Show Icon Divider",
                   tooltip = "Draw a 1px divider between the spell icon and the cast bar, matching the border color.",
+                  disabled = IconFree, disabledTooltip = FREE_TIP, rawTooltip = true,
                   get = function() local p = DB(); return p and p.castBar.showIconDivider end,
                   set = function(v)
                       local p = DB(); if not p then return end
@@ -196,6 +210,10 @@ function ns.ERB_BuildCastBarPage(pageName, parent, yOffset)
                       local p = DB(); if not p then return end
                       p.castBar.iconDividerArt = v and true or false; RefreshCast()
                   end },
+                IconSlider("iconSize", "Icon Size", 0, 64,
+                    "0 matches the bar height. Any other size or offset detaches the icon from the bar."),
+                IconSlider("iconOffsetX", "Offset X", -100, 100),
+                IconSlider("iconOffsetY", "Offset Y", -100, 100),
             },
         })
     end
@@ -523,16 +541,18 @@ function ns.ERB_BuildCastBarPage(pageName, parent, yOffset)
              if castFillBlizz then return "This option requires Blizzard Style to be disabled" end
              return "Player Cast Bar"
          end })
-    -- Inline cog on Fill Color for gradient settings
+    -- Inline cog on Fill Color: the gradient (not under Blizzard Style, whose fill
+    -- art is stock) and Out of Range Gray (every style).
     if not EllesmereUI._prebuilding then
         local rgn = castColorRow._leftRegion
+        local function gradientOff() return castFillBlizz end
         EllesmereUI.BuildInlineCog(rgn, {
-            disabled = function() local p = DB(); return castFillBlizz or (p and not p.castBar.enabled) end,
-            disabledTooltip = castFillBlizz and "Blizzard Style" or "Player Cast Bar",
-            requireState = castFillBlizz and "disabled" or nil,
-            title = "Gradient Settings",
+            disabled = function() local p = DB(); return p and not p.castBar.enabled end,
+            disabledTooltip = "Player Cast Bar",
+            title = "Fill Settings",
             rows = {
                 { type = "toggle", label = "Enable Gradient",
+                  disabled = gradientOff, disabledTooltip = "Blizzard Style", requireState = "disabled",
                   get = function() local p = DB(); return p and p.castBar.gradientEnabled end,
                   set = function(v)
                       local p = DB(); if not p then return end
@@ -540,12 +560,20 @@ function ns.ERB_BuildCastBarPage(pageName, parent, yOffset)
                       EllesmereUI:RefreshPage()
                   end },
                 { type = "dropdown", label = "Gradient Direction",
+                  disabled = gradientOff, disabledTooltip = "Blizzard Style", requireState = "disabled",
                   values = { HORIZONTAL = "Horizontal", VERTICAL = "Vertical" },
                   order = { "HORIZONTAL", "VERTICAL" },
                   get = function() local p = DB(); return p and p.castBar.gradientDir or "HORIZONTAL" end,
                   set = function(v)
                       local p = DB(); if not p then return end
                       p.castBar.gradientDir = v; RefreshCast()
+                  end },
+                { type = "toggle", label = "Gray When Out of Range",
+                  tooltip = "Grays the fill while your target is out of range of the spell being cast.",
+                  get = function() local p = DB(); return p and p.castBar.outOfRangeGray == true end,
+                  set = function(v)
+                      local p = DB(); if not p then return end
+                      p.castBar.outOfRangeGray = v; RefreshCast()
                   end },
             },
         })

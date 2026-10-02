@@ -13,6 +13,8 @@ if not (EllesmereUI and EllesmereUI.IS_FOREVER) then return end
 --  already under way, and saving it would go stale across a logout or crash,
 --  so the bar returns with the next takeoff instead.
 -------------------------------------------------------------------------------
+local _, module = ...
+
 local DEFAULT_SPEED = 30.4 -- yards per second; fitted to measured Classic flight times
 local PREVIEW_SECONDS = 20
 local TRACK_HEIGHT = 3
@@ -55,24 +57,8 @@ local bar, events, ticker, hooked
 local pending   -- destination picked on the flight map, waiting for takeoff
 local flight    -- the flight in progress
 
--- Cfg() is the WRITE accessor (creates the table); Read() never creates it, so
--- a user who never touches the feature gets no saved table.
-local function Cfg()
-    if not EllesmereUIDB then return {} end
-    EllesmereUIDB.flightTimer = EllesmereUIDB.flightTimer or {}
-    return EllesmereUIDB.flightTimer
-end
-
-local _NOCFG = {}
-local function Read()
-    return EllesmereUIDB and EllesmereUIDB.flightTimer or _NOCFG
-end
-
-local function Get(key)
-    local v = Read()[key]
-    if v == nil then return DEFAULTS[key] end
-    return v
-end
+local F = module.Feature("flightTimer", DEFAULTS, { point = "CENTER", relPoint = "CENTER", x = 0, y = 250 })
+local Get, Cfg, Read, Enabled = F.Get, F.Cfg, F.Read, F.Enabled
 
 -- The display's full height, centred on the track: end names above it, stop
 -- icons and names below (the same room the stop strip clips to).
@@ -84,11 +70,6 @@ end
 -- the track, to clear a track taller than the mark.
 local function Rise(size)
     return math.max(0, (Get("trackHeight") - size) / 2)
-end
-
--- On by default; a saved false turns it off.
-local function Enabled()
-    return Get("enabled") == true
 end
 
 local function Speed()
@@ -147,14 +128,6 @@ local function RouteInfo(slot)
         points[#points + 1] = { name = TaxiNodeName(toSlot), yards = yards }
     end
     return yards and yards > 0 and yards or nil, points
-end
-
-local DEFAULT_POS = { point = "CENTER", relPoint = "CENTER", x = 0, y = 250 }
-local function ApplyPosition()
-    local pos = Read().pos
-    if not (pos and pos.point) then pos = DEFAULT_POS end
-    bar:ClearAllPoints()
-    bar:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
 end
 
 -- Text in Forever Essentials' font and outline (Fonts page, else the global font).
@@ -391,7 +364,7 @@ local function CreateBar()
     bar.stops = {}
     bar:Hide()
     ApplyStyle()
-    ApplyPosition()
+    F.Place(bar)
 end
 
 -- Shows or hides the bar, faded in and out when the setting is on. Same fade
@@ -573,7 +546,7 @@ EllesmereUI._FlightTimer = {
     Cfg = Cfg,
     Apply = Apply,
     ApplyStyle = ApplyStyle,
-    ApplyPosition = function() if bar then ApplyPosition() end end,
+    ApplyPosition = function() F.Place(bar) end,
     textures = { lookup = BAR_TEXTURES, names = BAR_TEXTURE_NAMES, order = BAR_TEXTURE_ORDER },
     -- A second click ends it; a real flight is never replaced.
     Preview = function()
@@ -589,62 +562,13 @@ EllesmereUI._FlightTimer = {
     end,
 }
 
-local function Resized()
-    ApplyStyle()
-    if EllesmereUI._unlockActive and EllesmereUI.RepositionBarToMover then
-        EllesmereUI.RepositionBarToMover("EUI_FlightTimer")
-    end
-end
-
-local function RegisterUnlock()
-    local MK = EllesmereUI.MakeUnlockElement
-    local PPs = EllesmereUI.PP
-    EllesmereUI:RegisterUnlockElements({
-        MK({
-            key      = "EUI_FlightTimer",
-            label    = "Flight Timer",
-            group    = "Forever Essentials",
-            order    = 730,
-            isHidden = function() return not Enabled() end,
-            -- Nothing is built while the feature is off (the unlock core calls
-            -- getFrame / applyPos for every element at each login).
-            getFrame = function()
-                if not Enabled() then return nil end
-                CreateBar()
-                return bar
-            end,
-            -- Height follows the text around the track: width only.
-            getSize = function() return Get("width"), BoxHeight() end,
-            setWidth = function(_, w)
-                Cfg().width = math.max(50, PPs.Snap(w))
-                Resized()
-            end,
-            savePos = function(_, point, relPoint, x, y)
-                if not point then return end
-                Cfg().pos = { point = point, relPoint = relPoint, x = x, y = y }
-                if bar and not EllesmereUI._unlockActive then ApplyPosition() end
-            end,
-            loadPos = function()
-                local pos = Read().pos
-                return pos and pos.point and pos or DEFAULT_POS
-            end,
-            clearPos = function()
-                Cfg().pos = nil
-                if bar then ApplyPosition() end
-            end,
-            applyPos = function()
-                if not Enabled() then return end
-                CreateBar()
-                ApplyPosition()
-            end,
-        }),
-    }, "EllesmereUIForeverEssentials")
-end
-
-local boot = CreateFrame("Frame")
-boot:RegisterEvent("PLAYER_LOGIN")
-boot:SetScript("OnEvent", function(self)
-    self:UnregisterAllEvents()
-    Apply()
-    RegisterUnlock()
-end)
+F.Start(Apply, {
+    key = "EUI_FlightTimer", label = "Flight Timer", order = 730, minWidth = 50,
+    frame = function(build)
+        if build then CreateBar() end
+        return bar
+    end,
+    -- Follows the text around the track.
+    height = BoxHeight,
+    applyStyle = ApplyStyle,
+})

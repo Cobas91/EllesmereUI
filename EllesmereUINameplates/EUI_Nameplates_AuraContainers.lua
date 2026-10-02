@@ -959,18 +959,19 @@ end
 -- which reads DISPELLABLE and is defined far above this point (a file-scope
 -- local would be invisible to it down here).
 
--- Enemy Buff Filter mode (npEnemyBuffFilter): "important" is the DEFAULT for
--- EVERYONE (user-directed 2026-08-16 -- a deliberate new default; the retired
--- showAllEnemyBuffs key is an inert orphan, never migrated and never read;
--- the removed "all" value normalizes to important the same way, 2026-08-17).
--- UNION SEMANTICS (user-directed 2026-08-17): a single filter string ANDs
--- its tokens, so the OR lives in the group split. TWO groups render the row:
+-- Enemy Buff Filter mode (npEnemyBuffFilter): "important" is the retail
+-- DEFAULT (the retired showAllEnemyBuffs key is an inert orphan, never
+-- migrated and never read; the removed "all" value normalizes to important
+-- the same way), "showall" the WoW Forever one (defaults table).
+-- UNION SEMANTICS: a single filter string ANDs its tokens, so the OR lives in
+-- the group split. TWO groups render the row:
 -- "np" = ALL dispellable buffs (purgeables AND enrages -- the engine's
 -- DISPELLABLE token is class-independent; this group carries the dispel glow
--- style), "npnb" = the IMPORTANT non-dispellable remainder (plain style;
--- !DISPELLABLE keeps the union overlap-free; parked at 0 in Dispellable
--- mode). Important mode therefore shows important OR dispellable; Dispellable
--- mode shows the glow group alone. Both are composed filter STRINGS with
+-- style), "npnb" = the non-dispellable remainder (plain style; !DISPELLABLE
+-- keeps the union overlap-free), narrowed to IMPORTANT in Important mode and
+-- whole in Show All mode, parked at 0 in Dispellable mode. Important mode
+-- therefore shows important OR dispellable, Show All every buff, and
+-- Dispellable the glow group alone. All are composed filter STRINGS with
 -- INCLUDE_NAME_PLATE_ONLY (matches Blizzard's own buffFilterString) --
 -- C-evaluated, so the split holds on secret enemy data in instanced PvP and
 -- the glow needs no per-aura signal (the machinery #1509 deleted). The
@@ -978,7 +979,7 @@ end
 -- the "np" group wears, so every shown dispellable buff glows.
 local function BuffMode()
     local m = PVal("npEnemyBuffFilter")
-    if m == "dispellable" then return m end
+    if m == "dispellable" or m == "showall" then return m end
     return "important"
 end
 
@@ -993,10 +994,12 @@ end
 
 -- nil = the plain group has nothing to show (Dispellable mode, or a client
 -- without the DISPELLABLE token, where no complement can be expressed).
+-- Important narrows the remainder to IMPORTANT; Show All keeps all of it.
 local function BuffFilterPlain()
-    if BuffMode() ~= "important" or not DISPELLABLE then return nil end
+    local mode = BuffMode()
+    if mode == "dispellable" or not DISPELLABLE then return nil end
     local t = { "HELPFUL", "INCLUDE_NAME_PLATE_ONLY" }
-    if IMPORTANT then t[#t + 1] = IMPORTANT end
+    if mode == "important" and IMPORTANT then t[#t + 1] = IMPORTANT end
     t[#t + 1] = "!" .. DISPELLABLE
     return t
 end

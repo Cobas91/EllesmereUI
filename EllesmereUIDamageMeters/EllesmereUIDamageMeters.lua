@@ -1517,17 +1517,6 @@ instanceFrame:SetScript("OnEvent", function(_, event)
     end
 end)
 
--- CVar helper
-local function SetCVarSafe(name, value)
-    -- Classic Era has no built-in damage meter, so its CVar does not exist there.
-    if C_CVar and C_CVar.GetCVar and C_CVar.GetCVar(name) == nil then return end
-    if C_CVar and C_CVar.SetCVar then
-        C_CVar.SetCVar(name, value)
-    elseif SetCVar then
-        SetCVar(name, value)
-    end
-end
-
 local function SetDMFont(fs, size, flagsOverride, fontOverride)
     EllesmereUI.ApplyModuleFont(fs, fontOverride, size, "damageMeters", flagsOverride)
 end
@@ -6494,7 +6483,7 @@ initFrame:SetScript("OnEvent", function(self)
     -- Style page seeds on the switch; flags make both idempotent).
     if ns.DMClassic() then ns.DMSeedClassic(DB()) end
     -- Disable Blizzard's built-in damage meter UI; C_DamageMeter API still works
-    SetCVarSafe("damageMeterEnabled", 0)
+    EllesmereUI.SetCVar("damageMeterEnabled", 0, "EllesmereUIDamageMeters")
     AppendDMSharedMedia()
 
     _playerGUID = UnitGUID("player")

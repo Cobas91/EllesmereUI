@@ -429,6 +429,25 @@ local function GetAddonBtnSize()
     return mp and mp.addonBtnSize or FLYOUT_BTN_SIZE
 end
 
+-- EUI-look black box behind an addon button, on the button row and in the flyout grid alike.
+-- A child frame of the button, so it is re-pinned just below the button on every layout:
+-- the flyout's child loop lifts every child above the button, which would bury the icon.
+-- EBS field, not local -- 200-local cap.
+function EBS._ShowAddonBtnBox(btn)
+    local d = GetFFD(btn)
+    if not d.ungroupBg then
+        local ubg = CreateFrame("Frame", nil, btn, "BackdropTemplate")
+        ubg:SetBackdrop({ bgFile = "Interface\\ChatFrame\\ChatFrameBackground" })
+        ubg:SetBackdropColor(0, 0, 0, 0.8)
+        ubg:SetAllPoints(btn)
+        d.ungroupBg = ubg
+    end
+    local ubg = d.ungroupBg
+    ubg:SetFrameStrata(btn:GetFrameStrata())
+    ubg:SetFrameLevel(btn:GetFrameLevel() - 1)
+    ubg:Show()
+end
+
 -- Raise popups an addon parents to its button after layout above the grid.
 function EBS._RaiseLateFlyoutChildren(btn)
     if not flyoutPanel or btn:GetParent() ~= flyoutPanel then return end
@@ -487,9 +506,14 @@ local function LayoutFlyoutButtons()
     end
 
     local btnSize = GetAddonBtnSize()
-    -- margin=8: gaps stay FLYOUT_PADDING; the ring overlay overhangs each button by
-    -- 3px, so this leaves 5px of visible clearance.
-    local margin = 8
+    -- EUI look: each cell gets the flat black box the ungrouped row buttons wear, so a
+    -- button looks the same in the grid and on the row. Stock styles (and Button
+    -- Backgrounds off) keep the stock-map ring around each icon.
+    local mp = EBS.db and EBS.db.profile.minimap
+    local boxes = not EBS._MinimapBlizz() and not (mp and mp.btnBackgrounds == false)
+    -- Boxes: the outer margin matches the gaps. Ring: margin=8, since the ring overlay
+    -- overhangs each button by 3px, leaving 5px of visible clearance.
+    local margin = boxes and FLYOUT_PADDING or 8
     local cols = math.min(count, FLYOUT_COLS)
     local rows = math.ceil(count / cols)
     local pw = margin * 2 + cols * btnSize + (cols - 1) * FLYOUT_PADDING
@@ -527,8 +551,9 @@ local function LayoutFlyoutButtons()
         btn:SetFrameLevel(flyoutPanel:GetFrameLevel() + 5)
         if btn.SetFixedFrameLevel then btn:SetFixedFrameLevel(true) end
         StripButtonDecorations(btn)
-        -- Hide ungrouped overlays left over from a previous ungroup cycle
-        if GetFFD(btn).ungroupBg then GetFFD(btn).ungroupBg:Hide() end
+        -- Overlays left over from a previous ungroup cycle (or the other cell style)
+        if not boxes and GetFFD(btn).ungroupBg then GetFFD(btn).ungroupBg:Hide() end
+        if boxes and GetFFD(btn).flyoutRing then GetFFD(btn).flyoutRing:Hide() end
         if btn._ungroupRing then btn._ungroupRing:Hide() end
         -- Children must ride the same strata/level as the button.
         for _, child in ipairs({ btn:GetChildren() }) do
@@ -550,21 +575,28 @@ local function LayoutFlyoutButtons()
             end
         end
         if icon then
+            -- Same inset as the row: 3px inside the box, 2px inside the ring
+            local inset = boxes and 3 or 2
             icon:ClearAllPoints()
-            icon:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
-            icon:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -2, 2)
+            icon:SetPoint("TOPLEFT", btn, "TOPLEFT", inset, -inset)
+            icon:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -inset, inset)
             pcall(icon.SetTexCoord, icon, 0.05, 0.95, 0.05, 0.95)
             -- Foreign icon: no global SetTexCoord snap hook, so disable snap once here.
             if EllesmereUI.PP then EllesmereUI.PP.DisablePixelSnap(icon) end
         end
-        if not GetFFD(btn).flyoutRing then
-            local ring = btn:CreateTexture(nil, "OVERLAY", nil, 7)
-            ring:SetAtlas("AdventureMap-combatally-ring")
-            ring:SetPoint("TOPLEFT", btn, "TOPLEFT", -3, 3)
-            ring:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 3, -3)
-            GetFFD(btn).flyoutRing = ring
+        if boxes then
+            -- After the child loop above, which lifted the box over the icon
+            EBS._ShowAddonBtnBox(btn)
+        else
+            if not GetFFD(btn).flyoutRing then
+                local ring = btn:CreateTexture(nil, "OVERLAY", nil, 7)
+                ring:SetAtlas("AdventureMap-combatally-ring")
+                ring:SetPoint("TOPLEFT", btn, "TOPLEFT", -3, 3)
+                ring:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", 3, -3)
+                GetFFD(btn).flyoutRing = ring
+            end
+            GetFFD(btn).flyoutRing:Show()
         end
-        GetFFD(btn).flyoutRing:Show()
     end
 end
 
@@ -2809,6 +2841,11 @@ local function BuildCustomIndicators(minimap)
         EllesmereUI.HideWidgetTooltip()
     end)
 
+    -- Not under WoW Forever's Gamepad interface style: its navigation takes over a
+    -- panel opened from our insecure click and makes protected calls, so the open is
+    -- blocked (and the blocked-action popup can freeze the client). Every reader
+    -- guards on the nil button.
+    if not EllesmereUI.PadGamepadUI() then
     -- Friends Online button
     _customIndicators.friends = CreateIndicatorBtn("_friends", minimap,
         FRIENDS_ATLAS, FRIENDS_ATLAS, nil,
@@ -2817,6 +2854,8 @@ local function BuildCustomIndicators(minimap)
                 UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT, 1.0, 0.3, 0.3, 1.0)
                 return
             end
+            -- Switched to that style mid-session: opening the panel from here is blocked.
+            if EllesmereUI.PadGamepadUI() then return end
             ToggleFriendsFrame()
         end)
     -- Not in INDICATOR_ATLAS_RATIO, so the icon uses inset anchoring; desaturated idle.
@@ -2843,6 +2882,8 @@ local function BuildCustomIndicators(minimap)
         if self._icon then self._icon:SetAlpha(0.85) end
         HideFriendsTooltip()
     end)
+
+    end -- not PadGamepadUI
 
     -- Great Vault + M+ Portal buttons: built once, anchored in LayoutIndicatorFrames.
     -- Neither exists on WoW Forever or Classic Era (no vault, no keystone portals):
@@ -3470,19 +3511,7 @@ local function LayoutIndicatorFrames(minimap, p, circleMode)
                     -- Foreign icon: no global SetTexCoord snap hook, so disable once.
                     if EllesmereUI.PP then EllesmereUI.PP.DisablePixelSnap(icon) end
                 end
-                if not GetFFD(btn).ungroupBg then
-                    local ubg = CreateFrame("Frame", nil, btn, "BackdropTemplate")
-                    ubg:SetBackdrop({ bgFile = "Interface\\ChatFrame\\ChatFrameBackground" })
-                    ubg:SetBackdropColor(0, 0, 0, 0.8)
-                    ubg:SetAllPoints(btn)
-                    GetFFD(btn).ungroupBg = ubg
-                end
-                -- Re-assert strata/level every layout: the flyout child-loop bumps all
-                -- children to DIALOG, which would render the bg above the icon.
-                local ubg = GetFFD(btn).ungroupBg
-                ubg:SetFrameStrata(btn:GetFrameStrata())
-                ubg:SetFrameLevel(btn:GetFrameLevel() - 1)
-                ubg:Show()
+                EBS._ShowAddonBtnBox(btn)
                 if btn._ungroupRing then btn._ungroupRing:Hide() end
             else
                 -- No boxes: native appearance (restored above), our overlays hidden. Do NOT
@@ -4356,7 +4385,7 @@ local function ApplyMinimap()
     local blizz = EBS._MinimapBlizz()
 
     -- Rotate Minimap: enforce the CVar to match our setting (out of combat only).
-    SetCVar("rotateMinimap", p.rotateMinimap and "1" or "0")
+    EllesmereUI.SetCVar("rotateMinimap", p.rotateMinimap and "1" or "0", "EllesmereUIMinimap")
     -- Icon Size: nothing while unset (Edit Mode's value stands).
     EBS._ApplyMinimapIconScale()
 

@@ -16,38 +16,31 @@ local function GetFFD(frame)
     return d
 end
 
--- Style page choice for this window: "eui" | "blizzard" | "classic". Stored
--- PER PROFILE on the profile root (every other character sheet setting stays
--- account-wide) and latched on the first read for the session, which comes at
--- PLAYER_LOGIN after the spec profile pre-seed (the Style page and a profile
--- switch that changes it both reload). Both stock styles mean the same here:
--- Blizzard's own character frame, with the EllesmereUI stats section inside
--- its stats pane and the item level / enchant / upgrade-track text beside its
--- slots. WoW Forever reads the same flags (its WoW Forever variant as
--- blizzard): Blizzard Style and Classic WoW UI there leave Blizzard's own
--- Forever sheet untouched, and the WoW Forever variant keeps the item text
--- beside its slots (EllesmereUIBlizzardSkin_CharacterSheetForever.lua).
+-- The Character Sheet card's style: "blizzard" for Blizz Default, else "eui"
+-- (EllesmereUI and Modern skin the sheet alike). Account-wide, swapped with
+-- the whole-UI look (EllesmereUI.SwapWindowSkinStyle), and latched on the
+-- first read for the session, which comes at PLAYER_LOGIN after the look is
+-- reconciled (a change reloads). Blizz Default is Blizzard's own character
+-- frame with the EllesmereUI stats section inside its stats pane and the
+-- item level / enchant / upgrade-track text beside its slots; on WoW Forever
+-- it keeps the item text beside the slots of Blizzard's Forever sheet
+-- (EllesmereUIBlizzardSkin_CharacterSheetForever.lua). The card's Off stops
+-- all of it (the callers' enable-key gates).
 function ns.CharSheetStyle()
     local v = ns._csStyle
     if v == nil then
-        local p = EllesmereUI.GetActiveProfileData()
-        if type(p) ~= "table" then return "eui" end
-        v = (p.charSheetUseClassicStyle and "classic") or (p.charSheetUseBlizzardStyle and "blizzard") or "eui"
+        if not EllesmereUIDB then return "eui" end
+        local styles = EllesmereUIDB.blizzWindowSkinStyles
+        v = (type(styles) == "table" and styles.charsheet == "blizzard") and "blizzard" or "eui"
         ns._csStyle = v
-        -- The WoW Forever variant of Blizzard Style, latched with it: the
-        -- Forever client, Blizzard Style, and the sibling flag set with it.
-        ns._csForever = v == "blizzard" and EllesmereUI.IS_FOREVER == true
-            and p.charSheetUseForeverStyle == true
     end
     return v
 end
 function ns.CharSheetStock() return ns.CharSheetStyle() ~= "eui" end
--- WoW Forever variant: CharSheetStyle() still reads "blizzard" (every stock
--- site stays as it is); this keeps the slot text on Blizzard's Forever
--- sheet. False off Forever.
+-- Blizz Default on WoW Forever: the slot text on Blizzard's Forever sheet.
+-- False off Forever.
 function ns.CharSheetForever()
-    if ns._csStyle == nil then ns.CharSheetStyle() end
-    return ns._csForever == true
+    return EllesmereUI.IS_FOREVER == true and ns.CharSheetStock()
 end
 -- Stock styles' "Blizzard UI Color" (on unless turned off): every stat
 -- category in Blizzard's yellow in place of its own colour. nil when it does
@@ -845,6 +838,13 @@ local function PreSkinCharacterSheet()
 
     -- Scale fully owned by Blizzard (SetScale on secure panels taints UIParentPanelManager execution context).
     frame:SetFrameStrata("HIGH")
+    -- The equipment set icon picker inherits HIGH from PaperDollFrame, but its template
+    -- keeps the icon grid clickable only by sitting one strata above the rest of the popup.
+    -- Restore that gap, or the popup's BG and BorderBox cover the grid.
+    local gearPopup = _G.GearManagerPopupFrame
+    if gearPopup and gearPopup.IconSelector then
+        gearPopup.IconSelector:SetFrameStrata("DIALOG")
+    end
 
     -- Frame size is entirely Blizzard's -- no SetWidth/SetHeight or OnUpdate enforcers on the secure frame; our layout fits inside native dimensions.
     if CharacterFrameInset then
@@ -857,7 +857,7 @@ local function SkinCharacterSheet()
     if skinned then return end
     skinned = true
 
-    -- Stock styles (Blizzard Style / Classic WoW UI): Blizzard's own frame,
+    -- Blizz Default (the stock styles below): Blizzard's own frame,
     -- chrome, tabs, slots, model and sidebar panes stay untouched. Only the
     -- stats section (inside Blizzard's stats pane) and the slot text (beside
     -- Blizzard's slots) are built; every art pass below is skipped.
@@ -2036,8 +2036,11 @@ local function SkinCharacterSheet()
     local function GetCategoryColor(title)
         local blizz = ns.CharSheetBlizzColor()
         if blizz then return blizz end
-        local custom = EllesmereUIDB and EllesmereUIDB.statCategoryColors and EllesmereUIDB.statCategoryColors[title]
-        if custom then return custom end
+        local useCustom = EllesmereUIDB and EllesmereUIDB.statCategoryUseColor and EllesmereUIDB.statCategoryUseColor[title]
+        if useCustom then
+            local custom = EllesmereUIDB and EllesmereUIDB.statCategoryColors and EllesmereUIDB.statCategoryColors[title]
+            if custom then return custom end
+        end
         return DEFAULT_CATEGORY_COLORS[title] or { r = 1, g = 1, b = 1 }
     end
 
@@ -4389,9 +4392,8 @@ end
 -- Entry point: apply the themed character sheet.
 local function ApplyThemedCharacterSheet()
     -- WoW Forever: the full makeover stands down; the EllesmereUI look and
-    -- the WoW Forever style's slot text there are
-    -- EllesmereUIBlizzardSkin_CharacterSheetForever.lua, and the other stock
-    -- styles keep Blizzard's own sheet untouched.
+    -- Blizz Default's slot text there are
+    -- EllesmereUIBlizzardSkin_CharacterSheetForever.lua.
     if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
     if EllesmereUIDB and (EllesmereUIDB.themedCharacterSheet == false or EllesmereUI.BlizzWindowSkinsKilled()) then
         return

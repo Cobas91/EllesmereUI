@@ -7,6 +7,9 @@ if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite
 --  and the sidebar unlock tip. Loads right after EllesmereUI.lua.
 -------------------------------------------------------------------------------
 local EllesmereUI = _G.EllesmereUI
+-- Private namespace shared with EllesmereUI.lua (module registry, sidebar model).
+local _, EUI_NS = ...
+EUI_NS = EUI_NS.__euiCoreNS or EUI_NS  -- standalone builds: the core's own table (EllesmereUI.lua)
 
 local PP                  = EllesmereUI.PP
 local PanelPP             = EllesmereUI.PanelPP
@@ -31,7 +34,7 @@ local ICONS_PATH          = EllesmereUI.ICONS_PATH
 local ADDON_ROSTER        = EllesmereUI.ADDON_ROSTER
 local CLASS_ART_MAP       = EllesmereUI.CLASS_ART_MAP
 local playerClass         = EllesmereUI._playerClass
-local modules             = EllesmereUI._modules
+local modules             = EUI_NS.modules
 local _widgetRefreshList  = EllesmereUI._widgetRefreshList
 local IsAddonLoaded       = C_AddOns.IsAddOnLoaded
 
@@ -55,8 +58,7 @@ local FOOTER_H   = 82
 local mainFrame, bgFrame, clickArea, sidebar, contentFrame
 local headerFrame, tabBar, scrollFrame, scrollChild, footerFrame, contentHeaderFrame
 local sidebarButtons = {}
--- On EllesmereUI (not a local) to save a CreateMainFrame upvalue; used by CreateMainFrame, RefreshSidebarStates, _applySidebarSearch.
-EllesmereUI._sidebarGroupButtons = {}
+EUI_NS.sidebarButtons = sidebarButtons
 local activeModule, activePage
 local _lastPagePerModule = {}
 local scrollTarget = 0
@@ -1556,7 +1558,7 @@ local function CreateMainFrame()
 
     -- Grouped-sidebar row heights (groups = text-only headers, children = indented rows
     -- with label + power), sized to fit all addons without scrolling. On EllesmereUI so
-    -- RefreshSidebarStates / _applySidebarSearch read the same values.
+    -- RefreshSidebarStates reads the same values.
     EllesmereUI.SIDEBAR_GROUP_ROW_H = 28
     EllesmereUI.SIDEBAR_CHILD_ROW_H = 28   -- includes 6px air gap between addons
     EllesmereUI.SIDEBAR_GROUP_GAP   = 10   -- extra vertical space between groups
@@ -1591,7 +1593,6 @@ local function CreateMainFrame()
         end })
 
         row._isGroup = true
-        row._group   = group
         row._label   = label
         return row
     end
@@ -1688,7 +1689,8 @@ local function CreateMainFrame()
 
         -- Sync icon (to the left of power button, hidden for exempt/single-profile).
         -- Also hidden entirely in standalone builds (no cross-module sync surface).
-        if not IS_STANDALONE and not info.comingSoon and not info.maintenance and not EllesmereUI._syncExempt[info.folder] then
+        if not IS_STANDALONE and not info.comingSoon and not info.maintenance and not info.plugin
+           and not EllesmereUI._syncExempt[info.folder] then
             local syncBtn = CreateFrame("Button", nil, btn)
             syncBtn:SetSize(15, 15)
             if btn._pwrBtn then
@@ -1867,13 +1869,16 @@ local function CreateMainFrame()
     end
 
     -- Build the sidebar in group order; positions are assigned once and re-stacked by
-    -- RefreshSidebarStates / _applySidebarSearch. Group/roster references go through
-    -- EllesmereUI fields to avoid upvalues in CreateMainFrame (60-upvalue cap); cumulative `_y` walks each row so group and child heights can differ.
+    -- RefreshSidebarStates. Group/roster references go through
+    -- the private EUI_NS model (one upvalue, CreateMainFrame is at the 60-upvalue cap);
+    -- cumulative `_y` walks each row so group and child heights can differ.
+    -- Outside addons' own groups and pages join the model first (see the Plugin API).
+    EUI_NS.SyncExternal()
     local _y = 0
-    local _groupHeaders = EllesmereUI._sidebarGroupButtons
-    local _infoByFolder = EllesmereUI._addonInfoByFolder
+    local _groupHeaders = EUI_NS.sidebarGroupButtons
+    local _infoByFolder = EUI_NS.navInfo
     local GROUP_GAP = EllesmereUI.SIDEBAR_GROUP_GAP
-    for i, group in ipairs(EllesmereUI.ADDON_GROUPS) do
+    for i, group in ipairs(EUI_NS.navGroups) do
         if i > 1 then _y = _y + GROUP_GAP end
         local header = CreateGroupHeader(group)
         header:SetPoint("TOPLEFT", addonScrollChild, "TOPLEFT", 0, -_y)
@@ -1889,7 +1894,14 @@ local function CreateMainFrame()
             end
         end
     end
-    EllesmereUI._sidebarButtons = sidebarButtons
+    -- Row factories for plugin sections registered after the panel is built
+    -- (the plugin registry creates their header and rows on the fly; positions
+    -- come from the next RefreshSidebarStates).
+    EUI_NS.CreateSidebarGroupHeader = CreateGroupHeader
+    EUI_NS.CreateSidebarChildRow    = CreateAddonChildRow
+    -- The two functions below are public: a local pairs means setfenv on them
+    -- cannot swap in one that is handed the private button table.
+    local pairs = pairs
     -- Lock/unlock excluded modules during an override editing session: their settings cannot be
     -- captured, so the row grays out and blocks clicks. Called from the session enter/exit paths in EllesmereUI_SpecOverrides.
     EllesmereUI.RefreshSidebarOverrideLocks = function()
@@ -3839,12 +3851,34 @@ end
 
 -------------------------------------------------------------------------------
 --  Module Registration
+--  RegisterModule is the suite's own entry point. Third-party addons use
+--  EllesmereUI.RegisterPlugin (see the Plugin API section), which can only create
+--  new sidebar sections; a page an older addon registers here under a key of its
+--  own still registers as it always did (see "Pages from addons written before
+--  this API"). For the suite's own pages:
+--   * the caller's file must resolve to a trusted folder; every other caller,
+--     including one without a file path (a loadstring chunk, a call routed
+--     through a C function), takes that outside path, which never takes a
+--     suite key;
+--   * outside standalone builds the only trusted caller is the options addon, and
+--     only while the core itself is loading it (EUI_NS.CoreRegistrationOpen), so a
+--     suite key cannot be claimed ahead of the real registration;
+--   * only suite keys are accepted (suite folders + the fixed panel pages), and
+--     each one is sealed on first registration: it cannot be registered again.
 -------------------------------------------------------------------------------
-function EllesmereUI:RegisterModule(folderName, config)
-    -- Only allow registration from EllesmereUI addon files.
-    -- Extract the addon folder name from the caller's file path.
-    local caller = debugstack(2, 1, 0) or ""
-    local callerFolder = caller:match("AddOns/([^/]+)/")
+do
+    -- Locals, not globals: setfenv on the public RegisterModule must not be
+    -- able to swap the functions that see the caller's config and stack.
+    local type, debugstack = type, debugstack
+    -- Non-roster suite pages that register through RegisterModule.
+    local CORE_PAGE_KEYS = {
+        [EllesmereUI.GLOBAL_KEY] = true,
+        _EUIProfiles   = true,
+        _EUIPatchNotes = true,
+    }
+    local sealed = {}
+    -- The suite's own addon folders (callers in standalone builds; the suite-core
+    -- marker below).
     local ALLOWED = {
         EllesmereUI = true,
         EllesmereUIOptions = true,  -- the LoadOnDemand options surface: every module's options file registers from here
@@ -3870,33 +3904,87 @@ function EllesmereUI:RegisterModule(folderName, config)
         EllesmereUIQuickdraw = true,
         EllesmereUIForeverEssentials = true,
     }
-    if callerFolder and not ALLOWED[callerFolder] then return end
-    -- Suite-core marker (module key is a suite folder), gating the toolbar whitelists:
-    -- the overrides icon renders for core modules only, the inline search for core
-    -- modules + Global Settings. Companion/external pages keep their own folder keys and
-    -- stay unmarked, so neither control renders for them (see SelectModule).
-    config._euiCore = ALLOWED[folderName] == true
-    modules[folderName] = config
-    -- If the UI is built, update the sidebar button now; else RefreshSidebarStates does it on first open
-    local btn = sidebarButtons[folderName]
-    if btn then
-        btn._loaded = true
-        btn._label:SetTextColor(NAV_ENABLED_TEXT.r, NAV_ENABLED_TEXT.g, NAV_ENABLED_TEXT.b, NAV_ENABLED_TEXT.a)
-        if btn._icon then
-            btn._icon:SetDesaturated(false)
-            btn._icon:SetAlpha(NAV_ENABLED_ICON_A)
+
+    -- Shared tail of every accepted registration. Only reachable from the
+    -- trusted paths below and from the plugin registry. open: an outside
+    -- addon's own key, which it may register again (as it always could).
+    function EUI_NS.StoreModule(folderName, config, open)
+        if not open then sealed[folderName] = true end
+        modules[folderName] = config
+        -- If the UI is built, update the sidebar button now; else RefreshSidebarStates does it on first open
+        local btn = sidebarButtons[folderName]
+        if btn then
+            btn._loaded = true
+            btn._label:SetTextColor(NAV_ENABLED_TEXT.r, NAV_ENABLED_TEXT.g, NAV_ENABLED_TEXT.b, NAV_ENABLED_TEXT.a)
+            if btn._icon then
+                btn._icon:SetDesaturated(false)
+                btn._icon:SetAlpha(NAV_ENABLED_ICON_A)
+            end
         end
+        -- Don't auto-select here; RefreshSidebarStates handles default selection in roster order
     end
-    -- Don't auto-select here; RefreshSidebarStates handles default selection in roster order
+
+    function EUI_NS.IsModuleKeyTaken(folderName)
+        return sealed[folderName] == true
+    end
+
+    -- A suite page's key: any suite folder (including one the running client
+    -- hides from the sidebar), one of the fixed panel pages, or a key the core
+    -- registered itself.
+    function EUI_NS.IsSuiteKey(key)
+        if EUI_NS.IsPluginKey(key) then return false end
+        return ALLOWED[key] == true or CORE_PAGE_KEYS[key] == true or sealed[key] == true
+    end
+
+    -- Internal registration for pages the core file builds itself (no caller check).
+    function EUI_NS.RegisterCoreModule(folderName, config, isCore)
+        if type(folderName) ~= "string" or type(config) ~= "table" then return false end
+        if sealed[folderName] or EUI_NS.IsPluginKey(folderName) then return false end
+        config._euiCore = isCore == true
+        config._plugin = nil
+        EUI_NS.StoreModule(folderName, config)
+        return true
+    end
+
+    function EllesmereUI:RegisterModule(folderName, config)
+        if type(folderName) ~= "string" or type(config) ~= "table" then return end
+        -- The caller's addon folder, from its file path (nil without one).
+        local caller = debugstack(2, 1, 0) or ""
+        local callerFolder = caller:match("AddOns/([^/]+)/")
+        if not (callerFolder and ALLOWED[callerFolder]) then
+            -- Another addon: a page under a key of its own registers as it did
+            -- before the plugin API; a suite page is never replaced.
+            EUI_NS.RegisterExternal(callerFolder, folderName, config)
+            return
+        end
+        -- Standalone builds bundle the options files flat into the one addon.
+        if not IS_STANDALONE
+           and (callerFolder ~= "EllesmereUIOptions" or not EUI_NS.CoreRegistrationOpen()) then
+            return
+        end
+        if not (ALLOWED[folderName] or CORE_PAGE_KEYS[folderName]) then return end
+        -- Suite-core marker (module key is a suite folder), gating the toolbar whitelists:
+        -- the overrides icon renders for core modules only, the inline search for core
+        -- modules + Global Settings. Companion/external pages stay unmarked, so neither
+        -- control renders for them (see SelectModule).
+        EUI_NS.RegisterCoreModule(folderName, config, ALLOWED[folderName] == true)
+    end
 end
 
 -------------------------------------------------------------------------------
 --  Page / Module Selection
 -------------------------------------------------------------------------------
+-- From here on the public functions iterate private tables (page cache, a
+-- module's page list): local iterators mean setfenv cannot swap in one that
+-- is handed those tables. (Declared after CreateMainFrame, which is at the
+-- upvalue cap.)
+local pairs, ipairs = pairs, ipairs
 -- Page cache: maps "moduleName::pageName" -> { wrapper, totalH, headerBuilder }
 -- On revisit, we show the cached wrapper and refresh widget values instead of rebuilding.
 _pageCache = {}
-EllesmereUI._pageCache = _pageCache
+-- Private: an entry's headerBuilder / wrapper is live page content, so the
+-- cache is shared with the core files only (global search reads it).
+EUI_NS.pageCache = _pageCache
 local _activePageWrapper  -- the currently-visible wrapper frame
 
 -- Invalidate all cached pages (called on profile reset, module reload, etc.)
@@ -4323,10 +4411,8 @@ function EllesmereUI:SelectModule(folderName)
     headerFrame._title:SetText(EllesmereUI.L(config.title or folderName))
     local rb = footerFrame and footerFrame._resetBtn
     if rb and rb._label then
-        local displayName = config.title or folderName
-        for _, entry in ipairs(ADDON_ROSTER) do
-            if entry.folder == folderName then displayName = entry.display; break end
-        end
+        local navEntry = EUI_NS.navInfo[folderName]
+        local displayName = (navEntry and navEntry.display) or config.title or folderName
         rb._label:SetText(EllesmereUI.Lf("Reset %1$s", EllesmereUI.L(displayName)))
         rb._label:SetWidth(rb:GetWidth() * 0.85)
         rb._label:SetWordWrap(false)
@@ -4370,107 +4456,6 @@ function EllesmereUI:SelectModule(folderName)
 end
 
 -------------------------------------------------------------------------------
---  Sidebar search filter -- iterates the last order captured by RefreshSidebarStates, hides
---  any button whose addon display name and registered page names don't contain the query, and re-stacks the remaining ones at the top of the scroll area.
--------------------------------------------------------------------------------
-function EllesmereUI._applySidebarSearch(text)
-    text = text and text:lower() or ""
-    local scrollChild = EllesmereUI._addonScrollChild
-    if not scrollChild then return end
-
-    -- Split the query into whitespace-delimited words. An entry matches only
-    -- if EVERY word is found somewhere in its combined searchable text
-    -- (display name + registered page names + module searchTerms).
-    local queryWords = {}
-    if text ~= "" then
-        for word in text:gmatch("%S+") do
-            queryWords[#queryWords + 1] = word
-        end
-    end
-
-    -- Bilingual: index the localized form too, only when it differs from the
-    -- original, so the English haystack stays byte-identical on English clients.
-    local function addLocalized(parts, s)
-        s = tostring(s)
-        parts[#parts + 1] = s:lower()
-        local loc = tostring(EllesmereUI.L(s))
-        if loc ~= s then parts[#parts + 1] = loc:lower() end
-    end
-
-    local function childMatches(info)
-        if #queryWords == 0 then return true end
-        local parts = {}
-        addLocalized(parts, info.display or "")
-        local mod = modules[info.folder]
-        if mod and mod.pages then
-            for _, p in ipairs(mod.pages) do
-                addLocalized(parts, p)
-            end
-        end
-        if mod and mod.searchTerms then
-            if type(mod.searchTerms) == "table" then
-                for _, t in ipairs(mod.searchTerms) do
-                    addLocalized(parts, t)
-                end
-            else
-                addLocalized(parts, mod.searchTerms)
-            end
-        end
-        local haystack = table.concat(parts, " ")
-        for _, word in ipairs(queryWords) do
-            if not haystack:find(word, 1, true) then return false end
-        end
-        return true
-    end
-
-    local y = 0
-    local groupHeaders = EllesmereUI._sidebarGroupButtons
-    local infoByFolder = EllesmereUI._addonInfoByFolder
-    local GROUP_H  = EllesmereUI.SIDEBAR_GROUP_ROW_H
-    local CHILD_H  = EllesmereUI.SIDEBAR_CHILD_ROW_H
-    local GROUP_GAP = EllesmereUI.SIDEBAR_GROUP_GAP
-    local firstVisibleGroup = true
-    for _, group in ipairs(EllesmereUI.ADDON_GROUPS) do
-        local header = groupHeaders[group.key]
-        local visibleChildren = {}
-        for _, folder in ipairs(group.members) do
-            local info = infoByFolder[folder]
-            local btn = info and sidebarButtons[folder]
-            if btn and info then
-                if childMatches(info) then
-                    visibleChildren[#visibleChildren + 1] = btn
-                else
-                    btn:Hide()
-                end
-            end
-        end
-        if header then
-            if #visibleChildren == 0 then
-                header:Hide()
-            else
-                if not firstVisibleGroup then y = y + GROUP_GAP end
-                firstVisibleGroup = false
-                header:ClearAllPoints()
-                header:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -y)
-                header:Show()
-                y = y + GROUP_H
-            end
-        end
-        for _, btn in ipairs(visibleChildren) do
-            btn:ClearAllPoints()
-            btn:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -y)
-            btn:Show()
-            y = y + CHILD_H
-        end
-    end
-
-    scrollChild:SetHeight(math.max(CHILD_H, y))
-    if text ~= "" and EllesmereUI._addonScrollFrame then
-        EllesmereUI._addonScrollFrame:SetVerticalScroll(0)
-    end
-end
-
--------------------------------------------------------------------------------
 --  Show / Hide / Toggle
 -------------------------------------------------------------------------------
 local function RefreshSidebarStates()
@@ -4497,14 +4482,14 @@ local function RefreshSidebarStates()
     if not scrollChild then return end
 
     local firstLoaded = nil
-    local groupHeaders = EllesmereUI._sidebarGroupButtons
-    local infoByFolder = EllesmereUI._addonInfoByFolder
+    local groupHeaders = EUI_NS.sidebarGroupButtons
+    local infoByFolder = EUI_NS.navInfo
 
     local GROUP_H   = EllesmereUI.SIDEBAR_GROUP_ROW_H
     local CHILD_H   = EllesmereUI.SIDEBAR_CHILD_ROW_H
     local GROUP_GAP = EllesmereUI.SIDEBAR_GROUP_GAP
     local y = 0
-    for i, group in ipairs(EllesmereUI.ADDON_GROUPS) do
+    for i, group in ipairs(EUI_NS.navGroups) do
         if i > 1 then y = y + GROUP_GAP end
         local header = groupHeaders[group.key]
         if header then
@@ -4804,4 +4789,479 @@ function EllesmereUI:ShowModule(folderName)
     if modules[folderName] then
         self:SelectModule(folderName)
     end
+end
+
+-------------------------------------------------------------------------------
+--  Plugin API
+--  Third-party addons add their own settings pages through RegisterPlugin. A
+--  plugin always gets a NEW sidebar section of its own; it can never add a row
+--  to one of the suite's sections, add a tab to a suite module, or replace a
+--  suite page:
+--   * plugin module keys live in the "plugin:<id>:<module>" namespace, which
+--     RegisterModule refuses, so they never collide with a suite key;
+--   * the section and its rows go to private lists that the sidebar renders
+--     only above or below the suite's block of groups (EUI_NS.RebuildNavGroups);
+--   * the registry keeps its own copy of every field it uses, so editing the
+--     spec table after registration has no effect;
+--   * every plugin callback runs through xpcall: a plugin error is reported
+--     through the error handler and never breaks the panel.
+--  Plugin pages take part in the global search like suite pages: widget rows
+--  are indexed on live navigation and by the search's hidden pre-build pass
+--  (a module can opt out of the latter with searchPrebuild = false).
+--  Developer guide: PLUGINS_API.md.
+-------------------------------------------------------------------------------
+EllesmereUI.PLUGIN_API_VERSION = 1
+
+do
+    local PREFIX          = EUI_NS.PLUGIN_PREFIX
+    local MAX_MODULES     = 20
+    local MAX_PAGES       = 20
+    local MAX_ID_LEN      = 40
+    local MAX_LABEL_CHARS = 32
+    local MAX_TITLE_CHARS = 48
+    local MAX_DESC_CHARS  = 300
+
+    -- id -> { label, position, keys = { [moduleKey] = fullKey }, firstKey }
+    local plugins = {}
+
+    local ReportError = EUI_NS.ReportError
+
+    local function Reject(id, msg)
+        ReportError(("EllesmereUI.RegisterPlugin(%s): %s"):format(tostring(id), msg))
+        return false
+    end
+
+    -- Caps s at maxChars UTF-8 characters.
+    local function CapChars(s, maxChars)
+        local n, cut = 0, nil
+        for pos in s:gmatch("()[%z\1-\127\194-\244][\128-\191]*") do
+            n = n + 1
+            if n > maxChars then cut = pos; break end
+        end
+        if cut then s = s:sub(1, cut - 1):gsub("%s+$", "") end
+        return s
+    end
+
+    -- Plain single-line text: drops every UI escape sequence (colors, textures,
+    -- atlases, hyperlinks, line breaks) so a label cannot borrow suite styling.
+    local function PlainText(s, maxChars)
+        if type(s) ~= "string" then return nil end
+        s = s:gsub("|[Tt].-|[Tt]", "")
+             :gsub("|[Aa].-|[Aa]", "")
+             :gsub("|[Kk].-|[Kk]", "")
+             :gsub("|H.-|h(.-)|h", "%1")
+             :gsub("|c%x%x%x%x%x%x%x%x", "")
+             :gsub("|cn[^:]*:", "")
+             :gsub("|r", "")
+             :gsub("|n", " ")
+             :gsub("|", "")
+             :gsub("%c", " ")
+             :gsub("%s+", " ")
+             :gsub("^ ", ""):gsub(" $", "")
+        if s == "" then return nil end
+        return CapChars(s, maxChars)
+    end
+
+    -- Section labels a plugin may not use: the suite's own group labels (English
+    -- and localized), the fixed panel entries, and the suite name itself.
+    local function IsReservedLabel(label)
+        local lower = label:lower()
+        if lower:find("^ellesmere") or lower:find("^eui") then return true end
+        local reserved = { "Global Settings", "Profiles", "Patch Notes" }
+        for _, g in ipairs(EUI_NS.coreGroups) do reserved[#reserved + 1] = g.label end
+        for _, r in ipairs(reserved) do
+            if lower == r:lower() or lower == tostring(EllesmereUI.L(r)):lower() then
+                return true
+            end
+        end
+        return false
+    end
+
+    local function ValidId(s)
+        return type(s) == "string" and #s <= MAX_ID_LEN and s:find("^%a[%w_%-]*$") ~= nil
+    end
+
+    local function Guard(fn)
+        if fn == nil then return nil end
+        return function(...)
+            local ok, a = xpcall(fn, ReportError, ...)
+            if ok then return a end
+        end
+    end
+
+    -- Guarded header builders, cached so a page keeps one builder identity.
+    local guardedHeaders = setmetatable({}, { __mode = "k" })
+    local function GuardHeaderSource(getHeaderBuilder)
+        if getHeaderBuilder == nil then return nil end
+        local get = Guard(getHeaderBuilder)
+        return function(pageName)
+            local hb = get(pageName)
+            if type(hb) ~= "function" then return nil end
+            local g = guardedHeaders[hb]
+            if not g then
+                g = Guard(hb)
+                guardedHeaders[hb] = g
+            end
+            return g
+        end
+    end
+
+    local CALLBACKS = { "buildPage", "getHeaderBuilder", "onPageCacheRestore", "onReset", "onModuleLeave" }
+
+    -- Validates one module spec and returns the registry's private config copy.
+    local function BuildModuleConfig(id, label, m, index, seenKeys)
+        if type(m) ~= "table" then return nil, ("modules[%d] must be a table"):format(index) end
+        if not ValidId(m.key) then
+            return nil, ("modules[%d].key must match ^%%a[%%w_%%-]*$ (max %d chars)"):format(index, MAX_ID_LEN)
+        end
+        if seenKeys[m.key] then return nil, ("duplicate module key %q"):format(m.key) end
+        local title = PlainText(m.title, MAX_TITLE_CHARS)
+        if not title then return nil, ("modules[%d].title must be a non-empty string"):format(index) end
+        if m.description ~= nil and type(m.description) ~= "string" then
+            return nil, ("modules[%d].description must be a string"):format(index)
+        end
+        if type(m.pages) ~= "table" or #m.pages == 0 or #m.pages > MAX_PAGES then
+            return nil, ("modules[%d].pages must be a list of 1-%d page names"):format(index, MAX_PAGES)
+        end
+        local pages, seenPages = {}, {}
+        for i, p in ipairs(m.pages) do
+            -- Page names are handed back to buildPage verbatim, so they are
+            -- validated rather than cleaned: plain text only.
+            if type(p) ~= "string" or p == "" or p:find("[|%c]") or seenPages[p] then
+                return nil, ("modules[%d].pages[%d] must be a unique plain-text string"):format(index, i)
+            end
+            seenPages[p] = true
+            pages[i] = p
+        end
+        for _, cb in ipairs(CALLBACKS) do
+            if m[cb] ~= nil and type(m[cb]) ~= "function" then
+                return nil, ("modules[%d].%s must be a function"):format(index, cb)
+            end
+        end
+        if type(m.buildPage) ~= "function" then
+            return nil, ("modules[%d].buildPage is required"):format(index)
+        end
+        if m.searchPrebuild ~= nil and type(m.searchPrebuild) ~= "boolean" then
+            return nil, ("modules[%d].searchPrebuild must be a boolean"):format(index)
+        end
+        seenKeys[m.key] = true
+        return {
+            title              = title,
+            description        = m.description and CapChars(m.description, MAX_DESC_CHARS) or nil,
+            pages              = pages,
+            buildPage          = Guard(m.buildPage),
+            getHeaderBuilder   = GuardHeaderSource(m.getHeaderBuilder),
+            onPageCacheRestore = Guard(m.onPageCacheRestore),
+            onReset            = Guard(m.onReset),
+            onModuleLeave      = Guard(m.onModuleLeave),
+            _euiCore           = false,
+            _plugin            = id,
+            _pluginLabel       = label,
+            _searchPrebuild    = m.searchPrebuild ~= false,
+        }
+    end
+
+    -- Builds the header and rows of a section registered after the panel exists.
+    local function BuildLateSection(group)
+        local createHeader = EUI_NS.CreateSidebarGroupHeader
+        local createRow    = EUI_NS.CreateSidebarChildRow
+        if not (createHeader and createRow) then return end
+        EUI_NS.sidebarGroupButtons[group.key] = createHeader(group)
+        for _, key in ipairs(group.members) do
+            sidebarButtons[key] = createRow(EUI_NS.navInfo[key])
+        end
+        if EllesmereUI.RefreshSidebarOverrideLocks then EllesmereUI.RefreshSidebarOverrideLocks() end
+        if mainFrame and mainFrame:IsShown() then RefreshSidebarStates() end
+    end
+
+    -- Adds one validated module to a plugin's record and section.
+    local function CommitModule(id, record, key, fullKey, config)
+        EUI_NS.navInfo[fullKey] = {
+            folder       = fullKey,
+            display      = config.title,
+            search_name  = record.label .. " " .. config.title,
+            alwaysLoaded = true,
+            plugin       = id,
+        }
+        local members = record.group.members
+        members[#members + 1] = fullKey
+        record.keys[key] = fullKey
+        record.firstKey = record.firstKey or fullKey
+        EUI_NS.StoreModule(fullKey, config)
+    end
+
+    --- Registers a plugin and its sidebar section.
+    --- @param id string   unique plugin id (letters, digits, "_" and "-")
+    --- @param spec table  { label, position = "bottom"|"top", modules = { ... } }
+    --- @return boolean    true when the plugin was registered
+    function EllesmereUI.RegisterPlugin(id, spec)
+        if not ValidId(id) then
+            return Reject(id, ("id must match ^%%a[%%w_%%-]*$ (max %d chars)"):format(MAX_ID_LEN))
+        end
+        if plugins[id] then return Reject(id, "a plugin with this id is already registered") end
+        if type(spec) ~= "table" then return Reject(id, "spec must be a table") end
+
+        local label = PlainText(spec.label, MAX_LABEL_CHARS)
+        if not label then return Reject(id, "label must be a non-empty string") end
+        if IsReservedLabel(label) then return Reject(id, ("label %q is reserved"):format(label)) end
+
+        local position = spec.position
+        if position == nil then position = "bottom" end
+        if position ~= "bottom" and position ~= "top" then
+            return Reject(id, 'position must be "bottom" or "top"')
+        end
+
+        if type(spec.modules) ~= "table" or #spec.modules == 0 or #spec.modules > MAX_MODULES then
+            return Reject(id, ("modules must be a list of 1-%d module specs"):format(MAX_MODULES))
+        end
+
+        -- Validate everything before touching any shared state.
+        local configs, seenKeys = {}, {}
+        for i, m in ipairs(spec.modules) do
+            local config, err = BuildModuleConfig(id, label, m, i, seenKeys)
+            if not config then return Reject(id, err) end
+            local fullKey = PREFIX .. id .. ":" .. m.key
+            if EUI_NS.IsModuleKeyTaken(fullKey) then
+                return Reject(id, ("module key %q is already registered"):format(fullKey))
+            end
+            configs[i] = { key = m.key, fullKey = fullKey, config = config }
+        end
+
+        local group = { key = PREFIX .. id, label = label, members = {}, plugin = id }
+        local record = { label = label, position = position, keys = {}, group = group }
+        for _, c in ipairs(configs) do
+            CommitModule(id, record, c.key, c.fullKey, c.config)
+        end
+        plugins[id] = record
+
+        local list = (position == "top") and EUI_NS.pluginGroupsTop or EUI_NS.pluginGroupsBottom
+        list[#list + 1] = group
+        EUI_NS.RebuildNavGroups()
+        BuildLateSection(group)
+        return true
+    end
+
+    function EllesmereUI.IsPluginRegistered(id)
+        return plugins[id] ~= nil
+    end
+
+    --- True while the global search's hidden pre-build pass is running a page
+    --- builder. The builder then gets a stub widget factory; skip side effects
+    --- (event registration, hooks, previews) while this is true.
+    function EllesmereUI.IsSearchPrebuild()
+        return EllesmereUI._prebuilding == true
+    end
+
+    --- Full module key of a plugin module ("plugin:<id>:<moduleKey>"), for the
+    --- panel calls that take one (GetActiveModule comparisons,
+    --- InvalidateModulePageCache). Nil when not registered.
+    function EllesmereUI.GetPluginModuleKey(id, moduleKey)
+        local record = plugins[id]
+        return record and record.keys[moduleKey] or nil
+    end
+
+    --- Opens the panel on a plugin module (its first module when moduleKey is
+    --- nil), optionally on a given page. Returns false when nothing matches.
+    function EllesmereUI.OpenPlugin(id, moduleKey, pageName)
+        local record = plugins[id]
+        if not record then return false end
+        local key = (moduleKey == nil) and record.firstKey or record.keys[moduleKey]
+        local config = key and modules[key]
+        if not config then return false end
+        if InCombatLockdown() then
+            EllesmereUI.PrintError("Cannot open options during combat.")
+            return false
+        end
+        if pageName ~= nil then
+            local valid = false
+            for _, p in ipairs(config.pages) do
+                if p == pageName then valid = true; break end
+            end
+            if not valid then return false end
+            -- SelectModule opens the module on its last page.
+            _lastPagePerModule[key] = pageName
+        end
+        EllesmereUI:ShowModule(key)
+        -- Already on this module: SelectModule was a no-op, switch the page here.
+        if pageName and activeModule == key and activePage ~= pageName
+           and mainFrame and mainFrame:IsShown() then
+            EllesmereUI:SelectPage(pageName)
+        end
+        return true
+    end
+
+    ---------------------------------------------------------------------------
+    --  Pages from addons written before this API
+    --  Such an addon registered a page under a key of its own (RegisterModule
+    --  from its own code, a loadstring chunk included, or a write into
+    --  EllesmereUI._modules) and listed it in a group of its own in the public
+    --  EllesmereUI.ADDON_GROUPS. Both still work as they did: the page keeps its
+    --  key (Spec Overrides, profile sync and search treat it as before), and the
+    --  addon's group shows above or below the suite's block, wherever the addon
+    --  inserted it. A row placed inside one of the suite's groups moves to a
+    --  section of its own, as does a page with no row (named after its addon).
+    --  Anything aimed at a suite page is ignored, no suite config is ever handed
+    --  out, and the addon is named once in a notice when the panel opens.
+    ---------------------------------------------------------------------------
+    -- owner: outside key -> the folder that registered it (false: no file path).
+    -- sections: source -> its section, a group table in the plugin lists.
+    local owner, placed, sections, offenders = {}, {}, {}, {}
+    local suiteGroup = {}
+    for _, g in ipairs(EUI_NS.coreGroups) do suiteGroup[g.key] = true end
+
+    local function Offend(folder, what)
+        folder = folder or "?"
+        local o = offenders[folder]
+        if not o then o = {}; offenders[folder] = o end
+        o[what] = true
+    end
+    EUI_NS.RecordLegacyOffender = Offend  -- the outside options load (EllesmereUI.lua)
+
+    -- An addon's TOC title as plain text (nil if it has none).
+    local function AddonTitle(folder)
+        local ok, title = pcall(C_AddOns.GetAddOnMetadata, folder, "Title")
+        return ok and PlainText(title, MAX_LABEL_CHARS) or nil
+    end
+
+    -- The roster entry an addon published for one of its keys, if any.
+    local function PublicInfo(key)
+        local info = EllesmereUI._addonInfoByFolder and EllesmereUI._addonInfoByFolder[key]
+        if type(info) == "table" then return info end
+        for _, e in ipairs(ADDON_ROSTER) do
+            if type(e) == "table" and e.folder == key then return e end
+        end
+    end
+
+    local function Section(source, label, top)
+        local s = sections[source]
+        if not s then
+            label = label or "Other Addons"
+            if IsReservedLabel(label) then label = CapChars("Plugin: " .. label, MAX_LABEL_CHARS) end
+            s = { key = "ext:" .. source, label = label, members = {} }
+            sections[source] = s
+            local list = top and EUI_NS.pluginGroupsTop or EUI_NS.pluginGroupsBottom
+            list[#list + 1] = s
+        end
+        return s
+    end
+
+    -- Gives an outside key its row in section s, labelled from the roster entry
+    -- its addon published, else from its page. Returns true for a new row.
+    local function Place(key, s)
+        if placed[key] or #s.members >= MAX_MODULES then return false end
+        local pub = PublicInfo(key)
+        local page = modules[key]
+        local display = (pub and PlainText(pub.display, MAX_LABEL_CHARS))
+            or (page and PlainText(page.title, MAX_LABEL_CHARS)) or PlainText(key, MAX_LABEL_CHARS) or "?"
+        EUI_NS.navInfo[key] = {
+            folder       = key,
+            display      = display,
+            search_name  = (pub and PlainText(pub.search_name, MAX_DESC_CHARS)) or display,
+            alwaysLoaded = pub == nil or pub.alwaysLoaded == true,
+            comingSoon   = pub and pub.comingSoon == true or nil,
+            maintenance  = pub and pub.maintenance == true or nil,
+        }
+        s.members[#s.members + 1] = key
+        placed[key] = true
+        return true
+    end
+
+    -- Places every outside page and every row an addon listed in a group of its
+    -- own. Runs as the panel is built, whenever it opens and on a late
+    -- registration; once everything has its row it only reads.
+    function EUI_NS.SyncExternal()
+        local added
+        local afterSuite = false
+        for _, g in ipairs(EllesmereUI.ADDON_GROUPS or {}) do
+            if type(g) == "table" and suiteGroup[g.key] then
+                afterSuite = true
+            elseif type(g) == "table" and type(g.members) == "table" then
+                for _, m in ipairs(g.members) do
+                    if type(m) == "string" and not placed[m]
+                       and not EUI_NS.IsSuiteKey(m) and not EUI_NS.IsPluginKey(m) then
+                        local s = Section("group:" .. tostring(g.key),
+                            PlainText(g.label, MAX_LABEL_CHARS), not afterSuite)
+                        if Place(m, s) then added = added or {}; added[s] = true end
+                    end
+                end
+            end
+        end
+        for key, folder in pairs(owner) do
+            if not placed[key] then
+                local s = Section("addon:" .. (folder or "?"),
+                    folder and (AddonTitle(folder) or PlainText(folder, MAX_LABEL_CHARS)) or nil, false)
+                if Place(key, s) then added = added or {}; added[s] = true end
+            end
+        end
+        if not added then return end
+        EUI_NS.RebuildNavGroups()
+        if not mainFrame then return end
+        for s in pairs(added) do
+            if EUI_NS.sidebarGroupButtons[s.key] then
+                -- Its section is already on the sidebar: add the new rows.
+                for _, key in ipairs(s.members) do
+                    if not sidebarButtons[key] and EUI_NS.CreateSidebarChildRow then
+                        sidebarButtons[key] = EUI_NS.CreateSidebarChildRow(EUI_NS.navInfo[key])
+                    end
+                end
+            else
+                BuildLateSection(s)
+            end
+        end
+        if EllesmereUI.RefreshSidebarOverrideLocks then EllesmereUI.RefreshSidebarOverrideLocks() end
+        if mainFrame:IsShown() then RefreshSidebarStates() end
+    end
+
+    -- A page another addon registers under a key of its own (folder: that
+    -- addon, nil for a caller without a file path). It may register again.
+    function EUI_NS.RegisterExternal(folder, key, config)
+        if type(key) ~= "string" or type(config) ~= "table" then return end
+        if EUI_NS.IsSuiteKey(key) then
+            if folder then Offend(folder, "page") end
+            return
+        end
+        if EUI_NS.IsPluginKey(key) then return end
+        config._euiCore = false
+        EUI_NS.StoreModule(key, config, true)
+        if owner[key] == nil then owner[key] = folder or false end
+        if mainFrame then EUI_NS.SyncExternal() end
+    end
+
+    -- The old public registry, kept as an inbox: writes register the page,
+    -- reads only ever return an outside addon's own pages.
+    EllesmereUI._modules = setmetatable({}, {
+        __index = function(_, key) if owner[key] ~= nil then return modules[key] end end,
+        __newindex = function(_, key, page)
+            EUI_NS.RegisterExternal((debugstack(2, 1, 0) or ""):match("AddOns/([^/]+)/"), key, page)
+        end,
+        __metatable = false,
+    })
+
+    -- Whenever the panel opens: places what the outside addons added since,
+    -- then a notice naming the addons whose changes to suite pages were
+    -- ignored, and an addon that loaded the options early; never shown twice
+    -- for the same set of addons.
+    EllesmereUI:RegisterOnShow(function()
+        EUI_NS.SyncExternal()
+        if not next(offenders) then return end
+        local pages, loaders = {}, {}
+        for folder, o in pairs(offenders) do
+            local name = (folder ~= "?" and AddonTitle(folder)) or folder
+            if o.page then pages[#pages + 1] = name end
+            if o.loader then loaders[#loaders + 1] = name end
+        end
+        table.sort(pages)
+        table.sort(loaders)
+        local seen = table.concat(pages, ",") .. "|" .. table.concat(loaders, ",")
+        if not EllesmereUIDB or EllesmereUIDB._legacyAddonNotice == seen then return end
+        EllesmereUIDB._legacyAddonNotice = seen
+        local parts = {}
+        if #pages > 0 then
+            parts[#parts + 1] = EllesmereUI.Lf("These addons tried to change EllesmereUI's own settings pages, which is no longer allowed, so those changes are not shown:\n\n%1$s\n\nTheir own settings still appear in a section of their own. Updating them should fix this.", table.concat(pages, "\n"))
+        end
+        if #loaders > 0 then
+            parts[#parts + 1] = EllesmereUI.Lf("%1$s loaded EllesmereUI's settings too early, so they could not set up this session. Type /reload; if this keeps happening, update or disable it.", table.concat(loaders, ", "))
+        end
+        EllesmereUI:ShowInfoPopup({ title = EllesmereUI.L("Addons Need an Update"), content = table.concat(parts, "\n\n") })
+    end)
 end

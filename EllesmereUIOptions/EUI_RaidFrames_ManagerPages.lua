@@ -2275,6 +2275,7 @@ function ns.DMP_BuildPage(pageName, parent, yOffset)
                 local DD_GAP = 11   -- dropdown to next label/button
 
                 popup = CreateFrame("Frame", nil, UIParent)
+                popup:Hide()  -- start hidden so Show() triggers OnShow
                 popup:SetFrameStrata("DIALOG")
                 popup:SetFrameLevel(200)
                 popup:SetSize(POPUP_W, POPUP_PAD

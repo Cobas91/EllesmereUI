@@ -679,6 +679,9 @@ function EllesmereUI:ShowConfirmPopup(opts)
     -- onDismiss: called on escape/click-outside. Falls back to onCancel if not provided.
     popup._onCancel = opts.onDismiss or opts.onCancel or nil
     popup._modal = opts.modal and true or false
+    -- This show's handle (returned below, for CloseConfirmPopup).
+    local handle = {}
+    popup._handle = handle
 
     -- Single-button mode: hide cancel, center confirm
     if opts.hideCancel then
@@ -763,18 +766,22 @@ function EllesmereUI:ShowConfirmPopup(opts)
         end)
     end
 
-    -- Counter-scale the popup to the options panel when the pixel-perfect system has rescaled UIParent; the dimmer stays at 1 so it still covers the full screen.
-    local mf = EllesmereUI._mainFrame
-    if mf and mf:GetScale() ~= 1 then
-        popup:SetScale(mf:GetScale())
-    else
-        popup:SetScale(1)
-    end
+    -- Counter-scale the popup to the options panel (same formula as its root frame, which may not exist yet); the dimmer stays at 1 so it still covers the full screen.
+    popup:SetScale(GetPopupScale())
 
 
     popup._dimmer:Show()
     -- Controller cursor: move it into the popup (the safe button is its first stop).
     EllesmereUI.PadFocus(popup)
+    return handle
+end
+
+-- Closes the confirm popup only while it still shows the request whose handle
+-- ShowConfirmPopup returned (the popup is shared, so never another caller's
+-- dialog), without running any of its callbacks.
+function EllesmereUI:CloseConfirmPopup(handle)
+    local popup = confirmPopup
+    if handle and popup and popup._handle == handle then popup._dimmer:Hide() end
 end
 
 -- There is no beta-reset welcome popup or wipe gate (EllesmereUI:ShowWelcomePopup does not exist); manual reset lives in Global Settings > Reset.

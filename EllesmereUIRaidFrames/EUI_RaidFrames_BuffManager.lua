@@ -2061,6 +2061,7 @@ function ns.BM_BuildPage(pageName, parent, yOffset)
                     local POPUP_W, POPUP_PAD, ROW_H, LABEL_H = 260, 10, 30, 14
                     local LBL_GAP, DD_GAP = 4, 11
                     local popup = CreateFrame("Frame", nil, ov)
+                    popup:Hide()  -- start hidden so Show() triggers OnShow
                     popup:SetFrameStrata("DIALOG")
                     popup:SetFrameLevel(ov:GetFrameLevel() + 20)
                     popup:SetSize(POPUP_W, POPUP_PAD + LABEL_H + LBL_GAP + ROW_H + DD_GAP + ROW_H + POPUP_PAD)
@@ -2438,6 +2439,7 @@ function ns.BM_BuildPage(pageName, parent, yOffset)
                 local GAP = 6
 
                 popup = CreateFrame("Frame", nil, UIParent)
+                popup:Hide()  -- start hidden so Show() triggers OnShow
                 popup:SetFrameStrata("DIALOG")
                 popup:SetFrameLevel(200)
                 local LBL_GAP = 4   -- label to dropdown

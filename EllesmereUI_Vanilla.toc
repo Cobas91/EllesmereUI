@@ -2,18 +2,18 @@
 ## Title: |cff0cd29fEllesmereUI|r
 ## Notes: Shared framework for the EllesmereUI addon suite
 ## Author: Ellesmere
-## Version: 9.3.4
+## Version: 9.3.5
 ## SavedVariables: EllesmereUIDB
 ## IconTexture: Interface\AddOns\EllesmereUI\media\eg-logo.tga
 ## X-Curse-Project-ID: 1477613
 ## X-Wago-ID: ZKbxbRN1
 
-# Client gate -- MUST load first (arms the per-file guard line + flags
-# EUI_CLIENT_CLASSIC_ERA for this port)
+# Pre-12.1 client failsafe -- MUST load first (arms the per-file guard line)
 EllesmereUI_ClientGate.lua
 
-# Classic Era API compatibility shim -- MUST load second, before any other
-# file can touch a retail-only C_ namespace or global.
+# Event-registration guards (EUI_SafeRegisterEvent & co.) for every client;
+# the rest of the file is the WoW Classic Era compatibility layer and returns
+# at once elsewhere (EllesmereUI_Vanilla.toc is the Classic Era manifest).
 EllesmereUI_ClassicCompat.lua
 
 # Libraries
@@ -27,6 +27,10 @@ Libs\LibSpecialization\LibSpecialization.lua
 
 # Lightweight addon framework (replaces Ace3)
 EllesmereUI_Lite.lua
+
+# Game settings EllesmereUI changes, recorded so Uninstall EUI can put them back
+# (before any file that changes one)
+EllesmereUI_Uninstall.lua
 
 # Central multi-language engine (resolves locale + glyph font; defines L/Lf/EnKey)
 # Translation data lives in the LoadOnDemand EllesmereUILocales child addon,
@@ -68,6 +72,11 @@ EllesmereUI_Profiles.lua
 EllesmereUI_PartyMode.lua
 EUI_MacroFactory.lua
 EUI_UnlockMode.lua
+EUI_UnlockMode_Anchors.lua
+EUI_UnlockMode_Positions.lua
+EUI_UnlockMode_Tools.lua
+EUI_UnlockMode_Movers.lua
+EUI_UnlockMode_Session.lua
 EllesmereUI_Glows.lua
 EllesmereUI_ClassicArt.lua
 EllesmereUI_Range.lua

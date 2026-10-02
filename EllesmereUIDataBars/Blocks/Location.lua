@@ -5,7 +5,6 @@ if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite
 
 local ADDON_NAME, ns = ...
 local L = ns.L
-local MEDIA = ns.MEDIA
 local K = ns.BlockKit
 
 -- Upvalues
@@ -142,7 +141,7 @@ end
 --   template()    -> stable width-reservation string; nil sizes from the live text instead
 --   width()       -> fixed width in px, or nil to size from the text
 --   collapse()    -> true drops the block from the bar entirely
---   texture       -> optional icon file, gated by the block's own showIcon setting (default on)
+--   hasIcon       -> shows the block's icon (K.SetBlockIcon), gated by the block's own showIcon setting (default on)
 --   events        -> event list driving Refresh
 --   tickSeconds   -> dedicated ticker period, for values no event announces
 -- Tooltip and click are identical for both blocks (same place), so they are wired straight in rather than passed.
@@ -160,11 +159,11 @@ local function MakeLocationBlock(blockCfg, slot, content, barCtx, opts)
 
     local frame = CreateFrame("Button", nil, content)
     frame:SetSize(60, 20); frame:EnableMouse(true); frame:RegisterForClicks("AnyUp")
-    -- Icon is optional: blocks without opts.texture are text-only.
+    -- Icon is optional: blocks without opts.hasIcon are text-only.
     local icon
-    if opts.texture then
+    if opts.hasIcon then
         icon = frame:CreateTexture(nil, "OVERLAY")
-        icon:SetTexture(opts.texture); icon:SetPoint("LEFT")
+        icon:SetPoint("LEFT")
     end
     local text = frame:CreateFontString(nil, "OVERLAY")
     AttachTextOffset(inst, text)
@@ -274,6 +273,7 @@ local function MakeLocationBlock(blockCfg, slot, content, barCtx, opts)
         ApplyColors()
 
         local iconSz = 0
+        if icon then K.SetBlockIcon(icon, blockCfg) end
         if icon and D().showIcon ~= false then
             iconSz = fontSize + LOC_ICON_EXTRA
             icon:SetSize(iconSz, iconSz)
@@ -407,7 +407,7 @@ ns.BlockFactories.location = function(blockCfg, slot, content, barCtx)
         -- PLAYER_REGEN_ENABLED: Refresh can only re-anchor/resize out of combat, so a mid-fight zone change leaves stale geometry until then.
         events = { "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA",
                    "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED" },
-        texture = ns.MICROMENU_MEDIA .. "menu-map.png",
+        hasIcon = true,
         text = function() return LocDisplayText(D().showSubZone ~= false) end,
         -- No template: sizes from the live name. Zone changes are rare, so one relayout each beats permanently reserving the longest zone name.
         width = function()
@@ -431,7 +431,7 @@ ns.BlockFactories.coords = function(blockCfg, slot, content, barCtx)
         events = { "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD",
                    "PLAYER_REGEN_ENABLED" },
         tickSeconds = 0.5,
-        texture = MEDIA .. "coordinates.png",
+        hasIcon = true,
         text = function() return LocCoordText(Precision()) end,
         template = function() return COORD_TEMPLATE[Precision()] or COORD_TEMPLATE[0] end,
         collapse = function()

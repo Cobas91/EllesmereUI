@@ -6,6 +6,9 @@ if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite
 --  popup anchored to the sidebar. Loads after EllesmereUI_Fonts.lua.
 -------------------------------------------------------------------------------
 local EllesmereUI = _G.EllesmereUI
+-- Private namespace shared with EllesmereUI.lua (sidebar buttons).
+local _, EUI_NS = ...
+EUI_NS = EUI_NS.__euiCoreNS or EUI_NS  -- standalone builds: the core's own table (EllesmereUI.lua)
 
 -------------------------------------------------------------------------------
 --  Profile Sync System (mirror groups)
@@ -744,9 +747,9 @@ do
             local bg = _syncPopup:CreateTexture(nil, "BACKGROUND")
             bg:SetAllPoints(); bg:SetColorTexture(15/255, 17/255, 22/255, 1)
             _syncPopup._bg = bg
-            -- Controller cursor: born hidden, so the Show below runs its OnShow
-            -- (the click-away) on the first open too.
-            if EllesmereUI.PadInUse() then _syncPopup:Hide() end
+            -- Born hidden, so the Show below runs its OnShow (the click-away)
+            -- on the first open too.
+            _syncPopup:Hide()
             EllesmereUI.TrackOverlay(_syncPopup)
             EllesmereUI.PadHint(_syncPopup, "nodepass")
         end
@@ -933,7 +936,7 @@ do
         refreshSyncBtnLabel()
 
         local function RefreshSidebarSyncIcon()
-            local sidebarBtns = EllesmereUI._sidebarButtons
+            local sidebarBtns = EUI_NS.sidebarButtons
             if sidebarBtns and sidebarBtns[folder] and sidebarBtns[folder]._syncBtn then
                 local sb = sidebarBtns[folder]._syncBtn
                 if sb._refreshAlpha then sb._refreshAlpha() end

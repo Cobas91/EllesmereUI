@@ -3246,7 +3246,8 @@ initFrame:SetScript("OnEvent", function(self)
 
         -- Container size: icon (hxh) + bar (only when icon shown)
         local hasIcon = cb.showIcon ~= false
-        local iconW = hasIcon and Snap(blizz and ns.ERB_CastIconW(cb) or h) or 0
+        local iconFree = ns.ERB_CastIconFree(cb)
+        local iconW = (hasIcon and not iconFree) and Snap(blizz and ns.ERB_CastIconW(cb) or h) or 0
         pf.container:SetSize(w + iconW, h)
 
         -- Scale down to fit when the cast bar is wider than the panel
@@ -3419,6 +3420,7 @@ initFrame:SetScript("OnEvent", function(self)
             else
                 pf.iconFrame:SetPoint("TOPLEFT", pf.container, "TOPLEFT", 0, 0)
             end
+            ns.ERB_LayoutFreeCastIcon(pf.iconFrame, pf.container, cb, iconFree)
             if hasIcon then pf.iconFrame:Show() else pf.iconFrame:Hide() end
         end
 
@@ -3429,9 +3431,10 @@ initFrame:SetScript("OnEvent", function(self)
         -- divider has to match it, not the panel's own pixel grid.
         if pf.iconDivider then
             -- Border Art Divider, as the live bar draws it.
-            if ns.ERB_CastDividerArt(pf.iconDivider, hasIcon and cb.showIconDivider, pf.iconFrame, iconOnRight, cb, blizz) then
+            local showDivider = hasIcon and not iconFree and cb.showIconDivider
+            if ns.ERB_CastDividerArt(pf.iconDivider, showDivider, pf.iconFrame, iconOnRight, cb, blizz) then
                 pf.iconDivider:Show()
-            elseif hasIcon and cb.showIconDivider then
+            elseif showDivider then
                 local PPp = EllesmereUI.PP
                 local des = pf.container:GetEffectiveScale()
                 local onePixel = (PPp and des > 0) and (PPp.perfect / des) or 1

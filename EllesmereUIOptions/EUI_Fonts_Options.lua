@@ -894,6 +894,12 @@ local function TileBags(parent, y, W, tile)
     _, h = W:DualRow(parent, y,
         size("Set Name Text Size", "bagSetNameFontSize", 7, 14, 9, TextSizes),
         size("BoE / Warbound Text Size", "bagBindTypeFontSize", 8, 16, 11, TextSizes));  y = y - h
+    _, h = W:DualRow(parent, y,
+        size("List Text Size", "bagListFontSize", 8, 16, 11, function()
+            if _G.EUI_Bags and _G.EUI_Bags.RefreshInventory then _G.EUI_Bags:RefreshInventory() end
+            if _G.EUI_BankFrame and _G.EUI_BankFrame.RefreshBank then _G.EUI_BankFrame:RefreshBank() end
+        end),
+        BLANK());  y = y - h
     return y
 end
 
@@ -1032,11 +1038,6 @@ local function TileBlizzardSkin(parent, y, W, tile)
               EllesmereUIDB.charSheetEnchantSize = v
               if EllesmereUI._refreshCharSheetSlotLabels then EllesmereUI._refreshCharSheetSlotLabels() end
           end }
-    -- WoW Forever: the slot text belongs to the EllesmereUI look and the WoW
-    -- Forever style there, so Blizzard Style and Classic WoW UI leave this
-    -- size nothing to drive.
-    local BS = EllesmereUI.BlizzStyle
-    if EllesmereUI.IS_FOREVER and BS and not BS.Forever("charsheet") then BS.Gate("charsheet", enchSizeCfg) end
     -- WoW Forever has no skyriding (the Dragon Riding HUD never loads there),
     -- so the enchant size sits alone in the last row.
     _, h = W:DualRow(parent, y,
@@ -1085,7 +1086,7 @@ local function TileCombatText(parent, y, W, tile)
           setValue = function(v)
               if InCombatLockdown() then return end
               v = math.floor(v * 10 + 0.5) / 10
-              SetCVar("WorldTextScale_v2", v)
+              EllesmereUI.SetCVar("WorldTextScale_v2", v)
           end },
         BLANK());  y = y - h
     y = LinkRow(parent, y, "Combat Text Font (logout required)",

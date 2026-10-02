@@ -1404,6 +1404,12 @@ local REFRESH_ADDON_STEPS = {
     function() if _G._EQT_RefreshAll then _G._EQT_RefreshAll() end end,
     -- Chat (sidebar icons, borders, fonts, visibility)
     function() if _G._ECHAT_RefreshAll then _G._ECHAT_RefreshAll() end end,
+    -- Bags (window order follows the selected profile immediately)
+    function()
+        if _G.EUI_Bags and _G.EUI_Bags.ApplyWindowLayering then
+            _G.EUI_Bags:ApplyWindowLayering()
+        end
+    end,
     -- Friends List + Mythic Timer
     function()
         if _G._EFR_ApplyFriends then _G._EFR_ApplyFriends() end
@@ -1734,11 +1740,9 @@ end
 -- Blizzard flag is, else eui. `active` names the module's latched key getter;
 -- optional `extra` names a module getter that is handed the incoming module
 -- profile and returns true when another latched, reload-gated choice would
--- change (Raid Frames: the Party page's Frame Style). `root` reads the flags
--- from the incoming profile's root instead of its module table (the
--- Character Sheet, which has no module profile); `data` names the incoming
--- profile's addons key when it is not the module folder (the Skyriding HUD's
--- own DB inside Blizz UI Enhanced); `retailOnly` skips the entry on WoW
+-- change (Raid Frames: the Party page's Frame Style). `data` names the
+-- incoming profile's addons key when it is not the module folder (the
+-- Skyriding HUD's own DB inside Blizz UI Enhanced); `retailOnly` skips the entry on WoW
 -- Forever (no Style row there, its getter always reads eui or is absent).
 -- `forever` (read on the Forever client only) names the sibling flag of the
 -- WoW Forever variant of Blizzard Style (set together with the Blizzard flag)
@@ -1773,8 +1777,6 @@ local STYLE_FLAGS = {
     { folder = "EllesmereUIChat",            key = "useBlizzardStyle",     classic = "useClassicStyle",     sub = "chat",    active = "ChatStyle",
       forever = "useForeverStyle", foreverActive = "ChatForeverFlag" },
     { folder = "EllesmereUIRaidFrames",      key = "useBlizzardStyle",     classic = "useClassicStyle",     active = "RF_Style", extra = "RF_PartyKitChanged" },
-    { folder = "EllesmereUIBlizzardSkin",    key = "charSheetUseBlizzardStyle", classic = "charSheetUseClassicStyle", root = true, active = "CharSheetStyle",
-      forever = "charSheetUseForeverStyle", foreverActive = "CharSheetForever" },
     { folder = "EllesmereUIBlizzardSkin",    key = "useBlizzardStyle",     classic = "useClassicStyle",     data = "EllesmereUIDragonRiding", retailOnly = true, active = "EDR_Style" },
 }
 local function StyleKeyOfFlags(p, f)
@@ -1818,7 +1820,7 @@ function EllesmereUI.ProfileChangesStyle(profileData)
         if mns and not (f.retailOnly and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) then
             local cur = RenderedStyleOf(f, mns)
             if cur ~= nil then
-                local incoming = f.root and profileData or profileData.addons[f.data or f.folder]
+                local incoming = profileData.addons[f.data or f.folder]
                 if f.sub and type(incoming) == "table" then incoming = incoming[f.sub] end
                 if cur ~= StyleKeyOfFlags(incoming, f) then return true end
                 -- `extra`: a reload-gated choice under the same style (the
@@ -1859,8 +1861,7 @@ function EllesmereUI.RenderedLook()
         if look == nil then
             local f = eitherBlizz
             local p = EllesmereUI.GetActiveProfileData()
-            local t = p
-            if p and not f.root then t = type(p.addons) == "table" and p.addons[f.data or f.folder] end
+            local t = p and type(p.addons) == "table" and p.addons[f.data or f.folder] or nil
             if f.sub and type(t) == "table" then t = t[f.sub] end
             if type(t) == "table" and t[(f.key:gsub("Blizzard", "Forever", 1))] then return "forever" end
             return "blizzard"
@@ -2040,6 +2041,7 @@ do
         "tooltipShowGuildRank", "tooltipShowTarget", "tooltipShowMode",
         "tooltipShowModifier", "tooltipGrowthDirection",
         "uberTooltips", "uberTooltipsManual", "tooltipHideHealthStrip",
+        "tooltipHealthStripTexture", "tooltipHealthStripHeight",
         "tooltipAnchorCursor", "tooltipCursorPosition",
         "tooltipCursorOffsetX", "tooltipCursorOffsetY",
         "tooltipBgColor", "tooltipBgOpacity", "tooltipBorderSize",
@@ -2076,7 +2078,7 @@ do
         "reskinBNetToast",
         "reskinLootRoll", "reskinLootHistory", "reskinGroupInvite",
         "reskinReadyCheck",
-        "reskinMicroMenu", "reskinHousing", "reskinDressUp", "reskinTransmog",
+        "reskinMicroMenu", "reskinBagBar", "reskinLegacySystem", "reskinHousing", "reskinDressUp", "reskinTransmog",
         "reskinMerchant", "reskinAuctionHouse", "reskinMacros",
         "reskinSettings", "reskinAddonList", "reskinCraftOrders",
         "reskinTrainer", "reskinGossip", "reskinQuest", "reskinInspectRecipe",
@@ -2365,12 +2367,22 @@ end
 --    dataBarsGold         cross-character gold ledger
 --    qolUpgradeCalcChars  Upgrade Calculator per-character cache
 --  (The same two blobs PRIVATE_ADDON_KEYS strips from normal strings, at
---  their current top-level homes.)
+--  their current top-level homes.) And the game settings this client had
+--  before EllesmereUI, which Uninstall EUI puts back, with the values modules
+--  hand back to this client's CVars later:
+--    restoreOnUninstall     (EllesmereUI_Uninstall.lua)
+--    gfxBackup              Optimize My FPS and Graphics' Restore values
+--    friendlyPlateVisSaved  friendly plates hidden in a follower dungeon
+--    chatTellMuted          the whisper sound Chat muted
 -------------------------------------------------------------------------------
 local FULL_EXPORT_TYPE = "fullaccount"
 local FULL_EXPORT_EXCLUDED = {
-    dataBarsGold        = true,
-    qolUpgradeCalcChars = true,
+    dataBarsGold          = true,
+    qolUpgradeCalcChars   = true,
+    restoreOnUninstall    = true,
+    gfxBackup             = true,
+    friendlyPlateVisSaved = true,
+    chatTellMuted         = true,
 }
 
 --- Builds a full-account export string, or nil.
@@ -3418,15 +3430,10 @@ function EllesmereUI.ImportProfile(importStr, profileName)
         -- carries euiAccent, so the imported value wins; an old string leaves
         -- merged.euiAccent inherited from the current profile (correct fallback).
         if imported.euiAccent then merged.euiAccent = DeepCopy(imported.euiAccent) end
-        -- The character sheet style and the whole-UI window look are
-        -- profile-root keys: take the exporter's values, never the
-        -- recipient's (an absent key reads as the EllesmereUI look).
-        merged.charSheetUseBlizzardStyle = imported.charSheetUseBlizzardStyle
-        merged.charSheetUseClassicStyle  = imported.charSheetUseClassicStyle
-        merged.windowSkinLook            = imported.windowSkinLook
-        -- WoW Forever's sibling flag for the sheet rides with them there (the
-        -- WoW Forever style keeps the slot text on Blizzard's sheet).
-        if EllesmereUI.IS_FOREVER then merged.charSheetUseForeverStyle = imported.charSheetUseForeverStyle end
+        -- The whole-UI window look is a profile-root key: take the exporter's
+        -- value, never the recipient's (an absent key reads as the
+        -- EllesmereUI look).
+        merged.windowSkinLook = imported.windowSkinLook
 
         -- Snap all positions to the physical pixel grid (imported profiles
         -- may come from a different version without pixel snapping)
@@ -4665,7 +4672,6 @@ function EllesmereUI.ApplyPresetEditMode(layoutString, layoutName)
     -- Edit Mode account settings populate on EDIT_MODE_LAYOUTS_UPDATED (login);
     -- once present, C_EditMode.GetLayouts is usable without opening the UI.
     if not (mgr and mgr.accountSettings) then return false end
-    if not (EditModePresetLayoutManager and EditModePresetLayoutManager.GetCopyOfPresetLayouts) then return false end
 
     local imported = C_EditMode.ConvertStringToLayoutInfo(layoutString)
     if not imported then return false end  -- malformed or version-incompatible string
@@ -4682,20 +4688,15 @@ function EllesmereUI.ApplyPresetEditMode(layoutString, layoutName)
         mgr:ReconcileWithModern(imported)
     end
 
-    local info = C_EditMode.GetLayouts()
-    if not (info and info.layouts) then return false end
-    if mgr.ReconcileWithModern then
-        for _, l in ipairs(info.layouts) do mgr:ReconcileWithModern(l) end
-    end
-
     -- C_EditMode.GetLayouts returns only the saved layouts; the live game keeps
     -- Blizzard's built-in presets ahead of them, and SaveLayouts / SetActiveLayout
-    -- index into that combined view. Rebuild it -- presets first, then the saved
-    -- layouts -- so the active index we hand back lines up with what the game uses.
-    local layouts = EditModePresetLayoutManager:GetCopyOfPresetLayouts()
-    local presetCount = #layouts
-    for _, l in ipairs(info.layouts) do
-        layouts[#layouts + 1] = l
+    -- index into that combined view: presets first, then the saved layouts, so
+    -- the active index we hand back lines up with what the game uses.
+    local info, presetCount = EllesmereUI.EditModeLayoutsForSave()
+    if not info then return false end
+    local layouts = info.layouts
+    if mgr.ReconcileWithModern then
+        for i = presetCount + 1, #layouts do mgr:ReconcileWithModern(layouts[i]) end
     end
 
     -- Re-importing a preset should refresh, not duplicate: drop any earlier copy of

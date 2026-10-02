@@ -5,7 +5,6 @@ if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite
 
 local ADDON_NAME, ns = ...
 local L = ns.L
-local MEDIA = ns.MEDIA
 local K = ns.BlockKit
 
 -- Upvalues
@@ -46,7 +45,6 @@ ns.BlockFactories.audio = function(blockCfg, slot, content, barCtx)
     inst.key = InstKey(barCtx, blockCfg)
     inst.events = { "CVAR_UPDATE", "PLAYER_ENTERING_WORLD" }
 
-    local AUDIO_TEX = MEDIA .. "audio.png"
     local mouseOver = false
     local dragging = false
 
@@ -67,7 +65,9 @@ ns.BlockFactories.audio = function(blockCfg, slot, content, barCtx)
     end
     -- The one volume writer, clamped to 0..1. A sound CVar write fires CVAR_UPDATE
     -- synchronously and the block's handler repaints the bar (and the owned tip,
-    -- outside a drag), so callers never repaint on their own.
+    -- outside a drag), so callers never repaint on their own. Plain SetCVar, not
+    -- EllesmereUI.SetCVar: this is the player's own volume (and mute), which
+    -- Uninstall EUI leaves as it is.
     local function SetChanVol(ch, v)
         SetCVar(ch.cvar, Clamp(v, 0, 1))
     end
@@ -79,7 +79,6 @@ ns.BlockFactories.audio = function(blockCfg, slot, content, barCtx)
     audioButton:EnableMouseWheel(true)
 
     local audioIcon = audioButton:CreateTexture(nil, "OVERLAY")
-    audioIcon:SetTexture(AUDIO_TEX)
 
     -- Volume bar: flat fill + dark track, same visual recipe as the profession skill bars.
     local volTrack = audioButton:CreateTexture(nil, "BACKGROUND")
@@ -195,6 +194,7 @@ ns.BlockFactories.audio = function(blockCfg, slot, content, barCtx)
     end)
 
     function inst:Refresh()
+        K.SetBlockIcon(audioIcon, blockCfg)
         local barCfg = BC()
         local barH = barCtx.GetThickness()
         local fontSize = max(9, floor(CONTENT_BASE * 0.4333 + 0.5))

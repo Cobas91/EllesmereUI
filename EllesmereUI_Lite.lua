@@ -504,6 +504,14 @@ function EUILite.OnSavedVariablesLoaded(fn)
     _svLoadedHooks[#_svLoadedHooks + 1] = fn
 end
 
+--- For those passes: true while EllesmereUIDB is still the stand-in a
+--- pre-SavedVariables db built (a standalone's file-scope NewDB), with no saved
+--- data loaded over it -- a fresh account, whatever the stand-in holds.
+function EUILite.StoreFromBeforeLoad()
+    local db = _preSVDBs[1]
+    return db ~= nil and db.sv == EllesmereUIDB
+end
+
 local lifecycleFrame = CreateFrame("Frame")
 lifecycleFrame:RegisterEvent("ADDON_LOADED")
 lifecycleFrame:RegisterEvent("PLAYER_LOGIN")

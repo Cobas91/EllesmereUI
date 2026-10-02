@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIBlizzardSkin_GreatVault.lua
 --  Great Vault reskin.
@@ -73,8 +74,9 @@ local STYLE = {
 }
 
 local function IsGreatVaultSkinEnabled()
-    -- Independent toggle, default on (not tied to any master reskin setting).
-    return not EllesmereUIDB or EllesmereUIDB.reskinGreatVault ~= false
+    -- Own toggle (default on), but like every window it honors the profile's
+    -- Window Skins kill switch: both resolve to "off" here.
+    return EllesmereUI.GetBlizzWindowStyle("greatvault") ~= "off"
 end
 
 local function BuildThemeContext()
@@ -885,7 +887,7 @@ end
 
 local function HookGreatVault()
     local frame = _G.WeeklyRewardsFrame
-    if not frame then return end
+    if not frame or not IsGreatVaultSkinEnabled() then return end
     local d = GetFFD(frame)
     if d.hooked then return end
 

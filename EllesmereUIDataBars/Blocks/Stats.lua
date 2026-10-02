@@ -5,7 +5,6 @@ if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite
 
 local ADDON_NAME, ns = ...
 local L = ns.L
-local MEDIA = ns.MEDIA
 local K = ns.BlockKit
 
 -- Upvalues
@@ -81,11 +80,11 @@ local function MakeStatBlock(blockCfg, slot, content, barCtx, opts)
 
     local frame = CreateFrame("Button", nil, content)
     frame:SetSize(60, 20); frame:EnableMouse(true); frame:RegisterForClicks("AnyUp")
-    -- Icon is optional: blocks without opts.texture are text-only.
+    -- Icon is optional: blocks without opts.hasIcon are text-only.
     local icon
-    if opts.texture then
+    if opts.hasIcon then
         icon = frame:CreateTexture(nil, "OVERLAY")
-        icon:SetTexture(opts.texture); icon:SetPoint("LEFT")
+        icon:SetPoint("LEFT")
     end
     local text = frame:CreateFontString(nil, "OVERLAY")
     AttachTextOffset(inst, text)
@@ -125,6 +124,9 @@ local function MakeStatBlock(blockCfg, slot, content, barCtx, opts)
         local str = lastVal .. opts.suffix()
 
         local iconSz = 0
+        if icon then
+            K.SetBlockIcon(icon, blockCfg)
+        end
         if icon and d.showIcon ~= false then
             iconSz = fontSize + (opts.iconExtra or 0)
         end
@@ -369,7 +371,6 @@ end
 -- LATENCY. Own factory, not MakeStatBlock: shows one OR two links (home/world/both), each
 -- with its own house/globe icon, which the single-icon stat helper cannot do. Bar keeps the
 -- block color; green/yellow/red criticality is tooltip-only (GetLatColor).
-local LAT_ICON = { home = MEDIA .. "home_latency.png", world = MEDIA .. "world_latency.png" }
 
 -- home | world | both. Falls back to the useWorldLatency boolean. Shared by the block and its options row, which must agree on what "selected" means.
 function ns.LatencyMode(s)
@@ -451,7 +452,7 @@ ns.BlockFactories.ms = function(blockCfg, slot, content, barCtx)
                 s.text:SetTextColor(tr, tg, tb, 1)
                 s.text:Show()
                 if showIcon then
-                    s.icon:SetTexture(LAT_ICON[link])
+                    K.SetBlockIcon(s.icon, blockCfg, link)
                     s.icon:SetVertexColor(ir, ig, ib, 1)
                     s.icon:SetSize(iconSz, iconSz)
                     s.icon:Show()
@@ -563,7 +564,7 @@ ns.BlockFactories.durability = function(blockCfg, slot, content, barCtx)
 
     return MakeStatBlock(blockCfg, slot, content, barCtx, {
         hbPrefix = "durability",
-        texture  = ns.MICROMENU_MEDIA .. "menu-professions.png",
+        hasIcon  = true,
         iconExtra = 7,
         -- Durability only moves on damage/repair edges the game announces, so
         -- the block samples on those events alone -- no heartbeat, and with no

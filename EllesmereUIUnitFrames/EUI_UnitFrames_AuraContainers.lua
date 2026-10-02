@@ -2456,6 +2456,38 @@ end
 local GRADIENT_TEXTURE = "Interface\\AddOns\\EllesmereUI\\media\\textures\\gradient-tb.tga"
 local GRADIENT_SHARP_TEXTURE = "Interface\\AddOns\\EllesmereUI\\media\\textures\\gradient-sharp.tga"
 
+-- Copy the separator's actual texture rect, so width, pixel snapping and future
+-- layout changes stay owned by the separator. Copies belong to the aura slot
+-- (engine visibility); the options preview tints its separators in place.
+-- Keep state outside the slot button, as with the border and outer ring copies.
+local function ApplyDispelSeparatorCopy(parent, state, key, seam, color)
+    local copy = state[key]
+    local source = seam and seam._tex
+    if not (source and seam:IsShown() and source:IsShown()) then
+        if copy then copy.host:Hide() end
+        return
+    end
+    if not copy then
+        local host = CreateFrame("Frame", nil, parent)
+        local tex = host:CreateTexture(nil, "OVERLAY", nil, 7)
+        tex:SetAllPoints(host)
+        host:SetAllPoints(source)
+        copy = { host = host, tex = tex, source = source }
+        state[key] = copy
+    end
+    if copy.source ~= source then
+        copy.host:ClearAllPoints()
+        copy.host:SetAllPoints(source)
+        copy.source = source
+    end
+    copy.host:SetFrameStrata(seam:GetFrameStrata())
+    copy.host:SetFrameLevel(seam:GetFrameLevel() + 1)
+    copy.tex:SetTexture(source:GetTexture())
+    copy.tex:SetTexCoord(source:GetTexCoord())
+    copy.tex:SetVertexColor(color.r, color.g, color.b, 1)
+    copy.host:Show()
+end
+
 -- applyExtra for dispel slots: builds/updates the overlay texture from the
 -- style (mode, color, opacity, health refs). Runs at init and every Restyle.
 local function ApplyDispelSlotStyle(button, d, style)
@@ -2585,6 +2617,13 @@ local function ApplyDispelSlotStyle(button, d, style)
     elseif d.ufRingOn then
         d.ufRingHost:Hide()
         d.ufRingOn = nil
+    end
+
+    -- Only enabled, displayed separators get copies. The inactive by-me twin
+    -- and disabled custom-border mode clear any copies they previously drew.
+    if ub or d.ufPowerSeam or d.ufPortraitSeam then
+        ApplyDispelSeparatorCopy(button, d, "ufPowerSeam", ub and uf.Power and uf.Power._pbSeam, c)
+        ApplyDispelSeparatorCopy(button, d, "ufPortraitSeam", ub and uf._portraitSeparator, c)
     end
 end
 
@@ -2734,7 +2773,9 @@ local function DispelFP(p)
     -- the copy reads counts too: the border keys; the strata (a strata change
     -- re-stacks child levels); the portrait mode and side (an inside 3D portrait
     -- lifts the unified border to frame+20); and the portrait and Outer Ring keys
-    -- that decide whether the ring copy shows and which art it takes.
+    -- that decide whether the ring copy shows and which art it takes. Separator
+    -- visibility and orientation changes must restyle their copies too; their
+    -- dimensions follow the source texture anchors without a restyle.
     local s = p.player
     local cb = p.dispelCustomBorder == true and s ~= nil
     return FP(p.dispelOverlay, p.dispelOverlayOpacity, p.dispelOverlayByMe == true,
@@ -2746,7 +2787,8 @@ local function DispelFP(p)
             s.borderTextureShiftY, s.borderBehind, p.frameStrata, s.frameStrata,
             s.portraitMode, s.portraitSide, p.portraitStyle, s.portraitStyle, s.showPortrait,
             s.portraitSize, s.detachedPortraitShape, s.detachedPortraitOuterRing,
-            s.detachedPortraitOuterRingScale) or false)
+            s.detachedPortraitOuterRingScale, s.borderPowerSeam, s.powerPosition,
+            s.powerHeight, s.portraitSeparator) or false)
 end
 
 local function ReloadDispelSlots(frame, entry)

@@ -747,7 +747,7 @@ local function RestoreCVars()
         if held[name] then
             held[name] = nil
             local prev = saved[name]
-            if prev and C_CVar.GetCVar(name) ~= prev then C_CVar.SetCVar(name, prev) end
+            if prev and C_CVar.GetCVar(name) ~= prev then EllesmereUI.ReleaseCVar(name, prev, "EllesmereUIChat") end
         end
     end
 end
@@ -765,11 +765,11 @@ local function ApplyCVar(name, target, saved, held)
             saved[name] = cur
             held[name] = true
         end
-        if cur ~= target then C_CVar.SetCVar(name, target) end
+        if cur ~= target then EllesmereUI.HoldCVar(name, target, "EllesmereUIChat") end
     elseif held[name] then
         held[name] = nil
         local prev = saved[name]
-        if prev and cur ~= prev then C_CVar.SetCVar(name, prev) end
+        if prev and cur ~= prev then EllesmereUI.ReleaseCVar(name, prev, "EllesmereUIChat") end
     end
     -- No third branch on purpose: a CVar we never took over is never written.
 end

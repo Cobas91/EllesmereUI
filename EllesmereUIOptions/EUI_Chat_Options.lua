@@ -732,24 +732,6 @@ initFrame:SetScript("OnEvent", function(self)
                       if ECHAT.ApplyTabSpacing then ECHAT.ApplyTabSpacing() end
                       EllesmereUI:RefreshPage()
                   end },
-                { type="toggle", text="Align Tabs to Full Panel",
-                  tooltip="Aligns the tab bar to the outer sidebar edge instead of only the chat panel edge.",
-                  disabled=function()
-                      return Cfg("extendBgBehindTabs") == true
-                          or (Cfg("sidebarVisibility") or "always") == "never"
-                  end,
-                  disabledTooltip=function()
-                      if Cfg("extendBgBehindTabs") then return "This option requires Tabs Inside Chat Panel to be disabled" end
-                      return "Sidebar Visibility"
-                  end,
-                  getValue=function() return Cfg("alignTabsToPanel") or false end,
-                  setValue=function(v)
-                      Set("alignTabsToPanel", v)
-                      if ECHAT.ApplyTabPadding then ECHAT.ApplyTabPadding() end
-                  end })
-            y = y - h
-
-            _, h = W:DualRow(parent, y,
                 { type="slider", text="Tab Spacing", min=0, max=10, step=1,
                   disabled=function() return Cfg("extendBgBehindTabs") == true end,
                   disabledTooltip="Tabs Inside Chat Panel", requireState="disabled",
@@ -757,19 +739,10 @@ initFrame:SetScript("OnEvent", function(self)
                   setValue=function(v)
                       Set("tabSpacing", v)
                       if ECHAT.ApplyTabSpacing then ECHAT.ApplyTabSpacing() end
-                  end },
-                { type="slider", text="Bottom Spacing to Panel", min=0, max=20, step=1,
-                  disabled=function() return Cfg("extendBgBehindTabs") == true end,
-                  disabledTooltip="Tabs Inside Chat Panel", requireState="disabled",
-                  getValue=function() return Cfg("tabPadding") or 0 end,
-                  setValue=function(v)
-                      Set("tabPadding", v)
-                      if ECHAT.ApplyTabPadding then ECHAT.ApplyTabPadding() end
                   end })
             y = y - h
 
-            local tabSizeRow
-            tabSizeRow, h = W:DualRow(parent, y,
+            _, h = W:DualRow(parent, y,
                 { type="slider", text="Tab Height", min=18, max=40, step=1,
                   getValue=function() return Cfg("tabHeight") or 24 end,
                   setValue=function(v)
@@ -782,22 +755,6 @@ initFrame:SetScript("OnEvent", function(self)
                       Set("tabInnerPaddingX", v)
                       if ECHAT.ApplyTabLayout then ECHAT.ApplyTabLayout() end
                   end })
-            -- Cog on Inner Padding X: Tab Offset X (applies in both tab modes)
-            if not EllesmereUI._prebuilding then
-                local rrgn = tabSizeRow._rightRegion
-                EllesmereUI.BuildInlineCog(rrgn, {
-                    title = "Tab Layout",
-                    rows = {
-                        { type="slider", label="Tab Offset X",
-                          min = -100, max = 100, step = 1,
-                          get=function() return Cfg("tabOffsetX") or 0 end,
-                          set=function(v)
-                              Set("tabOffsetX", v)
-                              if ECHAT.ApplyTabPadding then ECHAT.ApplyTabPadding() end
-                          end },
-                    },
-                })
-            end
             y = y - h
             end -- not STOCK (LAYOUT)
 

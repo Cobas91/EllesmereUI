@@ -5,7 +5,6 @@ if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite
 
 local ADDON_NAME, ns = ...
 local L = ns.L
-local MEDIA = ns.MEDIA
 local K = ns.BlockKit
 
 -- Upvalues
@@ -189,7 +188,6 @@ ns.BlockFactories.travel = function(blockCfg, slot, content, barCtx)
     inst.events = { "HEARTHSTONE_BOUND", "PLAYER_ENTERING_WORLD",
         "BAG_UPDATE_DELAYED", "SPELLS_CHANGED" }
 
-    local HEARTH_TEX = MEDIA .. "hearthstone.png"
     local _trvFitBuf1 = { "" }
     local _trvFitBuf2 = { "" }
     local mouseOver = false
@@ -387,7 +385,7 @@ ns.BlockFactories.travel = function(blockCfg, slot, content, barCtx)
         hearthButton:SetAttribute("*type2", "macro")
         hearthButton:SetAttribute("*macrotext2", "")
 
-        hearthIcon   = hearthButton:CreateTexture(nil, "OVERLAY"); hearthIcon:SetTexture(HEARTH_TEX)
+        hearthIcon   = hearthButton:CreateTexture(nil, "OVERLAY")
         hearthText   = hearthButton:CreateFontString(nil, "OVERLAY")
         AttachTextOffset(inst, hearthText)
 
@@ -441,7 +439,7 @@ ns.BlockFactories.travel = function(blockCfg, slot, content, barCtx)
     -- Combat-deferred construction: dimmed non-interactive icon until OOC.
     if InCombatLockdown() then
         placeholder = content:CreateTexture(nil, "OVERLAY")
-        placeholder:SetTexture(HEARTH_TEX)
+        K.SetBlockIcon(placeholder, blockCfg)
         placeholder:SetVertexColor(0.6, 0.6, 0.6, 0.6)
         placeholder:SetSize(16, 16)
         placeholder:SetPoint("CENTER")
@@ -456,6 +454,7 @@ ns.BlockFactories.travel = function(blockCfg, slot, content, barCtx)
 
     function inst:Refresh()
         if not built then return end
+        K.SetBlockIcon(hearthIcon, blockCfg)
         local barCfg = BC()
         local barH = barCtx.GetThickness()
         local fontSize = max(9, floor(CONTENT_BASE * 0.4333 + 0.5))

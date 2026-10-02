@@ -482,7 +482,7 @@ initFrame:SetScript("OnEvent", function(self)
               setValue=function(v)
                   if not EllesmereUIDB then EllesmereUIDB = {} end
                   EllesmereUIDB.suppressErrors = v
-                  if not InCombatLockdown() then SetCVar("scriptErrors", v and "0" or "1") end
+                  if not InCombatLockdown() then EllesmereUI.SetCVar("scriptErrors", v and "0" or "1") end
               end }
         );  y = y - h
 
@@ -1572,7 +1572,7 @@ initFrame:SetScript("OnEvent", function(self)
                 end
                 EllesmereUI:RefreshPage()
               end },
-            { type="toggle", text="Target Distance Text",
+            { type="toggle", text="Target Distance (Range) Text",
               tooltip="Shows the approximate distance to your current target as movable on-screen text (default 30-35). Use the cog for format, alignment, and text size; use Unlock Mode to position or Anchor to your Player Frame.",
               getValue=function()
                   return EllesmereUIDB and EllesmereUIDB.targetDistanceEnabled or false
@@ -1694,8 +1694,32 @@ initFrame:SetScript("OnEvent", function(self)
                       end },
                 },
                 footer = { unlockKey = "EUI_TargetDistance" },
-                gap = 9, disabled = tdOff, disabledTooltip = "Target Distance Text",
+                gap = 9, disabled = tdOff, disabledTooltip = "Target Distance (Range) Text",
             })
+        end
+
+        -- Row 5: Environment Ping keybind (left) | (blank)
+        local pingRow
+        pingRow, h = W:DualRow(parent, y,
+            { type="label", text="Environment Ping" },
+            EllesmereUI.BlankRowCfg()
+        );  y = y - h
+        if not EllesmereUI._prebuilding then
+            local rgn = pingRow._leftRegion
+            local kbBtn, refresh = EllesmereUI.BuildKeybindButton(rgn, {
+                w = 140, h = 30, font = 13, mouse = true,
+                get = function() return EllesmereUIDB.envPingKey end,
+                set = function(v)
+                    -- The hold key cannot be the button it claims.
+                    local base = v and v:match("[^%-]+$")
+                    if base == "BUTTON1" or base == "BUTTON2" then return end
+                    EllesmereUIDB.envPingKey = v
+                    if EllesmereUI._applyEnvPing then EllesmereUI._applyEnvPing() end
+                end,
+                tooltip = "While held, left-clicking the world sends a ping that ignores units and only targets the environment.\n\nLeft-click to set a keybind.\nRight-click to unbind.",
+            })
+            PP.Point(kbBtn, "RIGHT", rgn, "RIGHT", -20, 0)
+            EllesmereUI.RegisterWidgetRefresh(refresh)
         end
 
         _, h = W:Spacer(parent, y, 20);  y = y - h
@@ -2252,6 +2276,53 @@ initFrame:SetScript("OnEvent", function(self)
             })
         end
 
+        -- Bonus Roll Confirmation. Not offered on WoW Forever: no bonus rolls
+        -- there, so the row is not built and the runtime block does not exist.
+        if not EllesmereUI.IS_FOREVER then
+        local bonusRollRow
+        local function bonusRollConflict()
+            return C_AddOns.IsAddOnLoaded("BonusRollConfirm")
+        end
+        bonusRollRow, h = W:DualRow(parent, y,
+            { type="toggle", text=EllesmereUI.L("Bonus Roll Confirmation"),
+              tooltip=EllesmereUI.L("Asks before spending a bonus roll and shows your loot specialization. Use the cog to also confirm Pass."),
+              disabled=bonusRollConflict,
+              disabledTooltip=EllesmereUI.L("BonusRollConfirm is loaded and handles confirmation. Disable that addon and reload to use this feature."),
+              getValue=function()
+                  return EllesmereUIDB and EllesmereUIDB.bonusRollConfirmation == true
+              end,
+              setValue=function(v)
+                  if not EllesmereUIDB then EllesmereUIDB = {} end
+                  EllesmereUIDB.bonusRollConfirmation = v
+                  if EllesmereUI._applyBonusRollConfirmation then EllesmereUI._applyBonusRollConfirmation() end
+                  EllesmereUI:RefreshPage()
+              end },
+            EllesmereUI.BlankRowCfg()
+        );  y = y - h
+        if not EllesmereUI._prebuilding then
+            EllesmereUI.BuildInlineCog(bonusRollRow._leftRegion, {
+                title = EllesmereUI.L("Bonus Roll Settings"),
+                rows = {
+                    { type="toggle", label=EllesmereUI.L("Only Confirm Roll"),
+                      tooltip=EllesmereUI.L("Pass immediately without confirmation. Turn off to confirm both Roll and Pass."),
+                      get=function()
+                          return not EllesmereUIDB or EllesmereUIDB.bonusRollOnly ~= false
+                      end,
+                      set=function(v)
+                          if not EllesmereUIDB then EllesmereUIDB = {} end
+                          EllesmereUIDB.bonusRollOnly = v
+                          if EllesmereUI._applyBonusRollConfirmation then EllesmereUI._applyBonusRollConfirmation() end
+                      end },
+                },
+                gap = 9,
+                disabled = function()
+                    return bonusRollConflict() or not (EllesmereUIDB and EllesmereUIDB.bonusRollConfirmation)
+                end,
+                disabledTooltip = EllesmereUI.L("Bonus Roll Confirmation"),
+            })
+        end
+        end -- not IS_FOREVER
+
         -- Keys, Logs & Brez sections live at the bottom of this page (the
         -- separate tab was retired to keep the tab bar at five pages).
         if _G._EUI_BuildAutoLoggingPage then
@@ -2338,6 +2409,8 @@ initFrame:SetScript("OnEvent", function(self)
                 EllesmereUIDB.trainAllButton = false
                 EllesmereUIDB.autoUnwrapCollections = false
                 EllesmereUIDB.autoOpenContainers = false
+                EllesmereUIDB.bonusRollConfirmation = false
+                EllesmereUIDB.bonusRollOnly = true
                 EllesmereUIDB.autoOpenContainersExcludeWarbound = true
                 EllesmereUIDB.autoOpenContainersHoldCappedArtisanPayouts = false
                 EllesmereUIDB.autoRepairGuild = false
@@ -2381,6 +2454,7 @@ initFrame:SetScript("OnEvent", function(self)
             if _G._EUI_ResetUpgradeCalc then _G._EUI_ResetUpgradeCalc() end
             if _G._EBS_ResetCursor then _G._EBS_ResetCursor() end
             EllesmereUI._applyHideBlizzardPartyFrame()
+            if EllesmereUI._applyBonusRollConfirmation then EllesmereUI._applyBonusRollConfirmation() end
             if EllesmereUI._applyHideErrorMessages then EllesmereUI._applyHideErrorMessages() end
             if EllesmereUI._applyAnnounceGroupDeaths then EllesmereUI._applyAnnounceGroupDeaths() end
             if EllesmereUI._applyCombatAlert then EllesmereUI._applyCombatAlert() end
