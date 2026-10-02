@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 -- EllesmereUI_SpellCostPrediction.lua
 -- WoW FOREVER ONLY: Spell Cost Prediction on mana power bars.
@@ -34,7 +35,7 @@ if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_C
 -------------------------------------------------------------------------------
 
 local EllesmereUI = _G.EllesmereUI
-if not (EllesmereUI and EllesmereUI.IS_FOREVER) then return end
+if not (EllesmereUI and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) then return end
 
 local MANA = Enum.PowerType.Mana
 local WHITE = "Interface\\Buttons\\WHITE8X8"
@@ -215,7 +216,7 @@ local function Listen()
     if on == listening then return end
     listening = on
     if on then
-        for i = 1, #EVENTS do ev:RegisterUnitEvent(EVENTS[i], "player") end
+        for i = 1, #EVENTS do EUI_SafeRegisterUnitEvent(ev, EVENTS[i], "player") end
     else
         ev:UnregisterAllEvents()
         castGUID, castSpell, castCost = nil, nil, nil

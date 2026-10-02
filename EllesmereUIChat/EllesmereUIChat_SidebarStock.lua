@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIChat_SidebarStock.lua
 --
@@ -601,8 +602,8 @@ function ECHAT.SB_WatchVoice(btn)
     ECHAT._sbVoiceBtn = btn
     if not ECHAT._sbVoiceEvents then
         local f = CreateFrame("Frame")
-        f:RegisterEvent("VOICE_CHAT_CHANNEL_ACTIVATED")
-        f:RegisterEvent("VOICE_CHAT_CHANNEL_DEACTIVATED")
+        EUI_SafeRegisterEvent(f, "VOICE_CHAT_CHANNEL_ACTIVATED")
+        EUI_SafeRegisterEvent(f, "VOICE_CHAT_CHANNEL_DEACTIVATED")
         f:SetScript("OnEvent", ECHAT.SB_PaintVoice)
         ECHAT._sbVoiceEvents = f
     end

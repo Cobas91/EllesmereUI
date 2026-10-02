@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EllesmereUIDataBars: user-created multi-bar engine.
 --
 -- ENGINE FILE. Owns DB + fresh profile shape (bars array, monotonic never-reused
@@ -282,6 +283,26 @@ if EllesmereUI.IS_FOREVER then
         if FOREVER_OFF[ns.BLOCK_TYPES[i].key] then table.remove(ns.BLOCK_TYPES, i) end
     end
     for key in pairs(FOREVER_OFF) do ns.BLOCK_DEFAULTS[key] = nil end
+end
+
+-- Classic Era has no specializations or loot spec at all (Blocks\Spec.lua
+-- degrades the factory itself to a class-name/icon readout); relabel the
+-- picker entry so it describes what the block actually shows there instead
+-- of promising a spec switcher that doesn't exist on this client. No season
+-- crests either: that block leaves the picker as it does on WoW Forever
+-- (Blocks\Crests.lua registers no factory there).
+if EllesmereUI.IS_CLASSIC_ERA then
+    for i = #ns.BLOCK_TYPES, 1, -1 do
+        local k = ns.BLOCK_TYPES[i].key
+        if k == "crests" or k == "greatvault" then table.remove(ns.BLOCK_TYPES, i) end
+    end
+    ns.BLOCK_DEFAULTS.crests, ns.BLOCK_DEFAULTS.greatvault = nil, nil
+    for i = 1, #ns.BLOCK_TYPES do
+        if ns.BLOCK_TYPES[i].key == "spec" then
+            ns.BLOCK_TYPES[i].label = "Class"
+            break
+        end
+    end
 end
 
 local DeepCopy = EllesmereUI.Lite.DeepCopy
@@ -2294,10 +2315,11 @@ function ns.ApplyBar(id)
 
     for i = 1, #cfg.blocks do
         local b = cfg.blocks[i]
-        -- WoW Forever: a saved block whose type has no factory there (a
-        -- retail-only block from an imported profile) builds no slot, so it
+        -- WoW Forever / Classic Era: a saved block whose type has no factory on
+        -- this client (a retail-only block from an imported profile, e.g.
+        -- "greatvault" dropped entirely on Classic Era) builds no slot, so it
         -- draws no background or hover region; the layout skips a missing slot.
-        if not (EllesmereUI.IS_FOREVER and not ns.BlockFactories[b.type]) then
+        if not ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and not ns.BlockFactories[b.type]) then
             local slot = EnsureSlot(rec, b)
             ApplyBlockDecor(slot, b, cfg)
             AnchorContent(slot, b, vertical, cfg)
@@ -2568,9 +2590,9 @@ do
                 visFrame = CreateFrame("Frame")
                 visFrame:SetScript("OnEvent", OnVisEvent)
             end
-            for _, e in ipairs(VIS_EVENTS) do visFrame:RegisterEvent(e) end
+            for _, e in ipairs(VIS_EVENTS) do EUI_SafeRegisterEvent(visFrame, e) end
             if EllesmereUI._hasGlidingEvent then
-                visFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED")
+                EUI_SafeRegisterEvent(visFrame, "PLAYER_IS_GLIDING_CHANGED")
             end
             _inCombat = InCombatLockdown() and true or false
         elseif visFrame then

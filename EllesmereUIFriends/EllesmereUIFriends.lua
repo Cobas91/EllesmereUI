@@ -1,4 +1,9 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+-- Classic Era: its friends window is the vanilla layout (FriendsFrameFriendsScrollFrame,
+-- no FriendsListFrame.ScrollBox) this module is not built for -- it stays off there
+-- as it does on WoW Forever, and Blizzard's own friends list is left as is.
+if EllesmereUI and EllesmereUI.IS_CLASSIC_ERA then return end
 -------------------------------------------------------------------------------
 --  EllesmereUIFriends.lua -- Friends List skin. Direct skin of Blizzard's
 --  native ScrollBox and buttons: no custom DataProvider, no friend groups.
@@ -537,6 +542,57 @@ local _FC_WOW_OFFSET = 10000
 local _friendCacheDirty = true
 local _friendCacheComplete = false
 
+-- Classic Era BNet friend info adapter. C_BattleNet is a real namespace on
+-- this client (not a retail-only addition; verified against the installed
+-- Classic Era ElvUI, which indexes C_BattleNet.GetFriendAccountInfo/
+-- GetGameAccountInfoByGUID unconditionally in Game\Shared\), so the primary
+-- path below just calls it directly. The old-style globals (BNGetFriendInfo,
+-- BNGetFriendGameAccountInfo) are used only as a fallback, reconstructing the
+-- same retail-shaped {accountName, battleTag, isAFK, isDND, gameAccountInfo=
+-- {isOnline, characterName, realmName, areaName, className, clientProgram,
+-- factionName, isOnline}} table this file expects everywhere else, in case a
+-- future client build ever ships C_BattleNet without this method.
+local function EUIF_GetFriendAccountInfoCompat(index)
+    if C_BattleNet and C_BattleNet.GetFriendAccountInfo then
+        local info = C_BattleNet.GetFriendAccountInfo(index)
+        if info then return info end
+    end
+    if not (BNGetFriendInfo and BNGetNumFriendGameAccounts and BNGetFriendGameAccountInfo) then return nil end
+    local presenceID, presenceName, battleTag, _, toonName, _, client, isOnline, _, isAFK, isDND =
+        BNGetFriendInfo(index)
+    if not presenceID then return nil end
+    local gameAccountInfo
+    local numAccounts = BNGetNumFriendGameAccounts(index) or 0
+    for gi = 1, numAccounts do
+        local hasFocus, characterName, clientProgram, realmName, _, faction, _, class, areaName, _, _, _, _, _, isWowMobile =
+            BNGetFriendGameAccountInfo(index, gi)
+        if clientProgram == BNET_CLIENT_WOW then
+            gameAccountInfo = {
+                isOnline       = true,
+                characterName  = characterName,
+                realmName      = realmName,
+                areaName       = areaName,
+                className      = class,
+                clientProgram  = clientProgram,
+                factionName    = faction,
+                wowProjectID   = 1, -- this client only ever reports its own (Classic Era) friends
+                isWowMobile    = isWowMobile,
+                hasFocus       = hasFocus,
+            }
+            break
+        end
+    end
+    return {
+        battleTag    = battleTag,
+        accountName  = toonName or battleTag,
+        isOnline     = isOnline,
+        isAFK        = isAFK,
+        isDND        = isDND,
+        client       = client,
+        gameAccountInfo = gameAccountInfo,
+    }
+end
+
 local function ResetFriendCacheIfDirty()
     if not _friendCacheDirty then return end
     wipe(_friendCache)
@@ -564,7 +620,7 @@ local function GetCachedFriendInfo(button)
     end
     -- Read only the friend needed by this row.
     if button.buttonType == FRIENDS_BUTTON_TYPE_BNET then
-        local info = C_BattleNet and C_BattleNet.GetFriendAccountInfo(button.id)
+        local info = EUIF_GetFriendAccountInfoCompat(button.id)
         if info then _friendCache[button.id] = info end
         return info, nil
     elseif button.buttonType == FRIENDS_BUTTON_TYPE_WOW then
@@ -581,7 +637,7 @@ local function RefreshFriendCache()
     local numBNet = BNGetNumFriends and BNGetNumFriends() or 0
     for i = 1, numBNet do
         if not _friendCache[i] then
-            local info = C_BattleNet and C_BattleNet.GetFriendAccountInfo(i)
+            local info = EUIF_GetFriendAccountInfoCompat(i)
             if info then _friendCache[i] = info end
         end
     end
@@ -2645,10 +2701,10 @@ local function SkinFriendsFrame()
 
     local function RegisterFriendsEvents()
         friendsEventFrame:RegisterEvent("FRIENDLIST_UPDATE")
-        friendsEventFrame:RegisterEvent("BN_FRIEND_LIST_SIZE_CHANGED")
+        EUI_SafeRegisterEvent(friendsEventFrame, "BN_FRIEND_LIST_SIZE_CHANGED")
         friendsEventFrame:RegisterEvent("BN_FRIEND_INFO_CHANGED")
         friendsEventFrame:RegisterEvent("BN_FRIEND_INVITE_ADDED")
-        friendsEventFrame:RegisterEvent("BN_FRIEND_INVITE_REMOVED")
+        EUI_SafeRegisterEvent(friendsEventFrame, "BN_FRIEND_INVITE_REMOVED")
     end
     local function UnregisterFriendsEvents()
         friendsEventFrame:UnregisterAllEvents()

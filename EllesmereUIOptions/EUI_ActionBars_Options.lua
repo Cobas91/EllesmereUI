@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ActionBar_Options.lua
 --  Registers the Action Bars module. All get/set calls go to EAB.db.profile.
@@ -285,7 +286,7 @@ initFrame:SetScript("OnEvent", function(self)
     -- Rebuild the preview on spec change (new talent group).
     do
         local specChangeFrame = CreateFrame("Frame")
-        specChangeFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+        EUI_SafeRegisterEvent(specChangeFrame, "ACTIVE_TALENT_GROUP_CHANGED")
         specChangeFrame:SetScript("OnEvent", function(self, event)
             if event == "ACTIVE_TALENT_GROUP_CHANGED" and _barsHeaderBuilder then
                 activePreview = nil
@@ -1552,7 +1553,7 @@ initFrame:SetScript("OnEvent", function(self)
         local orientValues = { HORIZONTAL = "Horizontal", VERTICAL = "Vertical" }
         local orientOrder  = { "HORIZONTAL", "VERTICAL" }
         -- The data bars this client builds (WoW Forever has no House Favor bar).
-        local DATA_BAR_KEYS = EllesmereUI.IS_FOREVER and { "XPBar", "RepBar" }
+        local DATA_BAR_KEYS = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and { "XPBar", "RepBar" }
             or { "XPBar", "RepBar", "FavorBar" }
 
         _, h = W:DualRow(parent, y,
@@ -2077,7 +2078,7 @@ initFrame:SetScript("OnEvent", function(self)
 
         _, h = W:Spacer(parent, y, 12);  y = y - h
         BuildDataBarSection("RepBar", "REPUTATION BAR", "Rep Bar Visibility")
-        if not EllesmereUI.IS_FOREVER then
+        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         _, h = W:Spacer(parent, y, 12);  y = y - h
         BuildDataBarSection("FavorBar", "HOUSE FAVOR BAR", "Favor Bar Visibility")
         end -- not IS_FOREVER

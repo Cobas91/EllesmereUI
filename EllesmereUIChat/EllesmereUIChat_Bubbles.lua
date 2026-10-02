@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 local _, ns = ...
 local EUI = _G.EllesmereUI
 if not EUI then return end
@@ -932,10 +933,10 @@ local function SyncChatEvents(cfg)
         local want = cfg ~= nil and cfg[EVENT_CHANNEL[event]] == true
         if want ~= (registeredChat[event] == true) then
             if want then
-                eventFrame:RegisterEvent(event)
+                EUI_SafeRegisterEvent(eventFrame, event)
                 registeredChat[event] = true
             else
-                eventFrame:UnregisterEvent(event)
+                EUI_SafeUnregisterEvent(eventFrame, event)
                 registeredChat[event] = nil
             end
         end

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_UICore.lua
 --  Always-resident UI primitives consumed by BOTH runtime code (bags, meters,
@@ -1001,7 +1002,7 @@ end
 --  isTanking fold between the has-aggro and low-threat colours; else white.
 --  Only the plain white mode is remembered per font string (never a value).
 -------------------------------------------------------------------------------
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     local aggR, aggG, aggB, lowR, lowG, lowB, fold
     local white  -- [fs] = true while its last paint was plain white (weak keys)
 
@@ -1153,8 +1154,8 @@ do
                 watchFrame:SetScript("OnEvent", OnPadEdge)
             end
             if next(watchers) == nil then
-                watchFrame:RegisterEvent("GAME_PAD_CONNECTED")
-                watchFrame:RegisterEvent("GAME_PAD_DISCONNECTED")
+                EUI_SafeRegisterEvent(watchFrame, "GAME_PAD_CONNECTED")
+                EUI_SafeRegisterEvent(watchFrame, "GAME_PAD_DISCONNECTED")
                 watchFrame:RegisterEvent("CVAR_UPDATE")
             end
             watchers[owner] = fn

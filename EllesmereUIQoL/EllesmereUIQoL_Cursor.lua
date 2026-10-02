@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 local ADDON_NAME = ...
 
 local ECL = EllesmereUI.Lite.NewAddon("EllesmereUICursor")
@@ -889,9 +890,9 @@ local function CreateCastCircle()
     castRoot:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", "player")
     castRoot:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
     if UnitChannelInfo and GetUnitEmpowerHoldAtMaxTime then
-        castRoot:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_START", "player")
-        castRoot:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_UPDATE", "player")
-        castRoot:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
+        EUI_SafeRegisterUnitEvent(castRoot, "UNIT_SPELLCAST_EMPOWER_START", "player")
+        EUI_SafeRegisterUnitEvent(castRoot, "UNIT_SPELLCAST_EMPOWER_UPDATE", "player")
+        EUI_SafeRegisterUnitEvent(castRoot, "UNIT_SPELLCAST_EMPOWER_STOP", "player")
     end
 
     castRoot._castID = nil
@@ -978,9 +979,9 @@ local function ApplyCastCircle()
     castRoot:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", "player")
     castRoot:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
     if UnitChannelInfo and GetUnitEmpowerHoldAtMaxTime then
-        castRoot:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_START", "player")
-        castRoot:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_UPDATE", "player")
-        castRoot:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
+        EUI_SafeRegisterUnitEvent(castRoot, "UNIT_SPELLCAST_EMPOWER_START", "player")
+        EUI_SafeRegisterUnitEvent(castRoot, "UNIT_SPELLCAST_EMPOWER_UPDATE", "player")
+        EUI_SafeRegisterUnitEvent(castRoot, "UNIT_SPELLCAST_EMPOWER_STOP", "player")
     end
     local attached = c.attached ~= false  -- default true
     local radius = c.radius or 36

@@ -1,4 +1,5 @@
 ﻿if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_RaidFrames_DebuffManager.lua
 -- 12.1 Debuff Manager runtime: base-grid record union plus user-added tiles.
 --
@@ -3413,7 +3414,7 @@ function ns.DM_BucketHasData(id, st)
     if (b.tiles and #b.tiles > 0) or b.baseOff == true then return true end
     local dis = b.inhDis
     if not (dis and next(dis) ~= nil) then return false end
-    if not EllesmereUI.IS_FOREVER then return true end
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return true end
     -- WoW Forever renders All Specs and the class's own bucket only, so only
     -- a disable of an All Specs tile counts. Scans dm.tiles in place and
     -- never creates it.
@@ -3493,7 +3494,7 @@ function ns.DM_CurrentSpecBaseOff()
     if not st then return false end
     local idx = GetSpecialization and GetSpecialization()
     local sid = idx and GetSpecializationInfo and GetSpecializationInfo(idx) or nil
-    if EllesmereUI.IS_FOREVER then sid = ns.DM_ForeverSpecID() end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then sid = ns.DM_ForeverSpecID() end
     local b = sid and st["spec" .. sid] or nil
     return (b and b.baseOff) and true or false
 end
@@ -3521,7 +3522,7 @@ function ns.DM_ActiveTiles()
     do
         local idx = GetSpecialization and GetSpecialization()
         sid = idx and GetSpecializationInfo and GetSpecializationInfo(idx) or nil
-        if EllesmereUI.IS_FOREVER then sid = ns.DM_ForeverSpecID() end
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then sid = ns.DM_ForeverSpecID() end
     end
     local con = st and sid and st["spec" .. sid] or nil
     local dis = con and con.inhDis or nil
@@ -3544,7 +3545,7 @@ function ns.DM_ActiveTiles()
         end
         -- WoW Forever: a class renders All Specs and its own bucket only
         -- (group buckets are not offered there).
-        if not EllesmereUI.IS_FOREVER and not (ns.BM_SpecKeyForSpecID and ns.BM_SpecKeyForSpecID(sid)) then
+        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and not (ns.BM_SpecKeyForSpecID and ns.BM_SpecKeyForSpecID(sid)) then
             AddBucket("nonhealer", true)
         end
         local roleKey = ns.BM_RoleBucketForSpecID and ns.BM_RoleBucketForSpecID(sid)

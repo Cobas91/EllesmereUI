@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_Visibility.lua
 --  Shared visibility dispatcher. Each module (Minimap, Friends, QuestTracker,
@@ -158,7 +159,7 @@ visFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 visFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 visFrame:RegisterEvent("PLAYER_DEAD")
 visFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
-visFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+EUI_SafeRegisterEvent(visFrame, "PLAYER_MOUNT_DISPLAY_CHANGED")
 visFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 visFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 visFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
@@ -171,19 +172,19 @@ visFrame:RegisterEvent("PLAYER_UPDATE_RESTING")
 -- Vehicle edges: same reasoning as Resting -- the In Vehicle axis needs its
 -- own edge or it only re-evaluates on incidental traffic. Player-filtered:
 -- other units' vehicle changes are irrelevant to these axes.
-visFrame:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-visFrame:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+EUI_SafeRegisterUnitEvent(visFrame, "UNIT_ENTERED_VEHICLE", "player")
+EUI_SafeRegisterUnitEvent(visFrame, "UNIT_EXITED_VEHICLE", "player")
 -- Dragonriding edges: mount-capability changes fire PLAYER_CAN_GLIDE_CHANGED
 -- (repo-proven event); takeoff/landing while staying mounted fires
 -- PLAYER_IS_GLIDING_CHANGED, which is probed because nothing registered it before this
 -- feature. When the probe fails on a client, the dragonriding checklist items lock
 -- (EUI._hasGlidingEvent) instead of evaluating with stale edges.
-visFrame:RegisterEvent("PLAYER_CAN_GLIDE_CHANGED")
+EUI_SafeRegisterEvent(visFrame, "PLAYER_CAN_GLIDE_CHANGED")
 do
     local ok
     if C_EventUtils and C_EventUtils.IsEventValid then
         ok = C_EventUtils.IsEventValid("PLAYER_IS_GLIDING_CHANGED") and true or false
-        if ok then visFrame:RegisterEvent("PLAYER_IS_GLIDING_CHANGED") end
+        if ok then EUI_SafeRegisterEvent(visFrame, "PLAYER_IS_GLIDING_CHANGED") end
     else
         ok = pcall(visFrame.RegisterEvent, visFrame, "PLAYER_IS_GLIDING_CHANGED") and true or false
     end

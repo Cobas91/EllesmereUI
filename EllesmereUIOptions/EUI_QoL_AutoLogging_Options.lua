@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_QoL_AutoLogging_Options.lua
 --  Options page for the Auto Combat Logging feature.
@@ -31,7 +32,7 @@ local TRIGGER_ITEMS = {
 -- key and its default) and every dungeon on the Dungeons trigger (a key only
 -- that client offers, off until the player turns it on). The retail
 -- difficulty, Mythic+, arena and scenario rows have nothing to match there.
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     TRIGGER_ITEMS = {
         { key = "logNormal",  label = "Raids" },
         { key = "logDungeon", label = "Dungeons" },
@@ -75,7 +76,7 @@ local function BuildAutoLoggingPage(pageName, parent, yOffset)
     --  KEYSTONE CHECK POPUP (no keystones on WoW Forever: the section and the
     --  /keys file behind it do not exist there)
     ---------------------------------------------------------------------------
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     _, h = W:SectionHeader(parent, "KEYSTONE CHECK POPUP", y); y = y - h
 
     _, h = W:DualRow(parent, y,
@@ -135,7 +136,7 @@ local function BuildAutoLoggingPage(pageName, parent, yOffset)
     --  LFG REMINDER (no dungeon teleports on WoW Forever: the section and the
     --  reminder runtime behind it do not exist there)
     ---------------------------------------------------------------------------
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     _, h = W:SectionHeader(parent, "LFG REMINDER", y); y = y - h
 
     _, h = W:DualRow(parent, y,
@@ -269,7 +270,7 @@ local function BuildAutoLoggingPage(pageName, parent, yOffset)
     --  BATTLE RES (no shared battle res charges on WoW Forever: the indicator
     --  runtime builds nothing there and the section is not built)
     ---------------------------------------------------------------------------
-    if _G._EUI_BuildBattleResSection and not EllesmereUI.IS_FOREVER then
+    if _G._EUI_BuildBattleResSection and not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local brezH = _G._EUI_BuildBattleResSection(parent, y, W, EllesmereUI.PP)
         y = y - brezH
     end
@@ -278,7 +279,7 @@ local function BuildAutoLoggingPage(pageName, parent, yOffset)
     --  BLOODLUST TRACKER (no raid-wide lust on WoW Forever: the tracker
     --  runtime returns at load there and the section is not built)
     ---------------------------------------------------------------------------
-    if _G._EUI_BuildBloodlustSection and not EllesmereUI.IS_FOREVER then
+    if _G._EUI_BuildBloodlustSection and not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local lustH = _G._EUI_BuildBloodlustSection(parent, y, W, EllesmereUI.PP)
         y = y - lustH
     end

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_Nameplates_Options.lua: registers the Nameplates module with EllesmereUI.
 --  All get/set calls go to ns.db.profile (centralized store); does NOT touch nameplate rendering logic.
@@ -42,7 +43,7 @@ local SECTION_OTHER     = "OTHER COLORS"
 
 -- Threat % Position dropdown (WoW Forever only, so nil on retail).
 local THREAT_PCT_POSITIONS, THREAT_PCT_POSITION_ORDER
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     THREAT_PCT_POSITIONS = { RIGHT = "Inside Right", LEFT = "Inside Left", CENTER = "Inside Center" }
     THREAT_PCT_POSITION_ORDER = { "RIGHT", "LEFT", "CENTER" }
 end
@@ -2305,7 +2306,7 @@ initFrame:SetScript("OnEvent", function(self)
                 local cpInfo = CP.CLASS_MAP[playerClass]
                 -- Match the module: vanilla content has only these two resources,
                 -- so previewing the rest would promise pips that never appear.
-                if EllesmereUI.IS_FOREVER then
+                if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                     cpInfo = (playerClass == "ROGUE" or playerClass == "DRUID")
                         and CP.CLASS_MAP[playerClass] or nil
                 end
@@ -3949,7 +3950,7 @@ initFrame:SetScript("OnEvent", function(self)
         end
 
         -- Row 7 (WoW Forever warriors only): Show Sunder Armor.
-        if EllesmereUI.IS_FOREVER and select(2, UnitClass("player")) == "WARRIOR" then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and select(2, UnitClass("player")) == "WARRIOR" then
             _, h = W:DualRow(parent, y,
                 { type="toggle", text="Show Sunder Armor",
                   tooltip="Shows Sunder Armor and its stacks on enemy nameplates, including stacks applied by other warriors.",
@@ -10213,7 +10214,7 @@ initFrame:SetScript("OnEvent", function(self)
         -- WoW Forever Threat % helpers and toggle (nil on retail, where Show Threat On
         -- takes the Off-Tank row's right slot instead).
         local threatPctOff, ThreatPctSet, offTankRightCfg
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             threatPctOff = function() return not DBVal("threatPctEnabled") end
             ThreatPctSet = function(key, v)
                 DB()[key] = v
@@ -10264,7 +10265,7 @@ initFrame:SetScript("OnEvent", function(self)
 
         -- Row 5 (WoW Forever only): Threat % Position (left) ---- Show Threat On (right).
         local chanRow = offTankRow
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local threatPctRow
             threatPctRow, h = W:DualRow(parent, y,
                 { type="dropdown", text="Threat % Position",
@@ -10391,7 +10392,7 @@ initFrame:SetScript("OnEvent", function(self)
     ---------------------------------------------------------------------------
     -- Rebuild preview when spec changes (class resource pips may appear/disappear)
     local npOptSpecFrame = CreateFrame("Frame")
-    npOptSpecFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(npOptSpecFrame, "PLAYER_SPECIALIZATION_CHANGED")
     npOptSpecFrame:SetScript("OnEvent", function(_, _, unit)
         if unit ~= "player" then return end
         -- Only invalidate + rebuild when the panel is open; invalidating while closed destroys all cached pages, causing a blank panel on next open.

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EllesmereUI_AuraKit.lua Shared engine for the 12.1 aura container system. Every
 -- EllesmereUI module consumes aura displays through this file; modules never call
 -- AddAuraGroup / AddAuraSlot / button setters directly. Centralizing this gives us one
@@ -1553,10 +1554,17 @@ function AK.CreateContainerShell(parent, spec)
     -- Combat creation is legal since 68914 (PTR-7 notes; /euit3 field PASS
     -- 2026-07-23). The old in-combat zombie soft-fail -- and the OOC assert
     -- that guarded against it -- are gone.
-    if not C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") then
-        C_AddOns.LoadAddOn("Blizzard_AuraContainer")
+    -- Classic Era has no engine aura container: the Lua stand-in
+    -- (EllesmereUI_AuraContainerCompat.lua) carries the same API there.
+    local container
+    if EllesmereUI.IS_CLASSIC_ERA and EllesmereUI._CreateCompatAuraContainer then
+        container = EllesmereUI._CreateCompatAuraContainer(parent)
+    else
+        if not C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") then
+            C_AddOns.LoadAddOn("Blizzard_AuraContainer")
+        end
+        container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
     end
-    local container = CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")
 
     -- Anchor and a provisional size up front: the engine drains its parse and
     -- layout phases from an OnUpdate armed in run-when-visible mode, so the
@@ -2096,7 +2104,7 @@ do
         watcher:RegisterEvent("UNIT_PET")
         -- A talent swap does not reliably reach SPELLS_CHANGED first, and without
         -- these a talent-gated entry is only correct after a /reload.
-        watcher:RegisterEvent("TRAIT_CONFIG_UPDATED")
+        EUI_SafeRegisterEvent(watcher, "TRAIT_CONFIG_UPDATED")
         watcher:RegisterEvent("PLAYER_ENTERING_WORLD")
         watcher:SetScript("OnEvent", function(_, event, unit)
             if event == "UNIT_PET" and unit ~= "player" then return end

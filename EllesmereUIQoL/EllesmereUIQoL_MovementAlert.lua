@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIQoL_MovementAlert.lua
 --  Three independent on-screen trackers for class mobility abilities:
@@ -785,6 +786,11 @@ local function SafeGetBaseDuration(spellId)
 end
 
 local function ResolvePlayerSpecId()
+    -- Classic Era has no specializations: the class stands in as its WoW
+    -- Forever spec ID, which the Forever movement list below keys on.
+    if EllesmereUI.IS_CLASSIC_ERA then
+        return EllesmereUI.FOREVER_CLASS_SPEC and EllesmereUI.FOREVER_CLASS_SPEC[playerClassToken] or nil
+    end
     local spec = C_SpecializationInfo.GetSpecialization()
     if not spec then return nil end
     local specId = C_SpecializationInfo.GetSpecializationInfo(spec)
@@ -844,7 +850,7 @@ local function GetPlayerMovementSpells()
     local classAbilities = MOVEMENT_ABILITIES[class]
     if not classAbilities then return {} end
     local specAbilities = classAbilities[specId]
-    if EllesmereUI.IS_FOREVER then specAbilities = ForeverMovementList() end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then specAbilities = ForeverMovementList() end
     if not specAbilities then return {} end
 
     local result, seen = {}, {}
@@ -1032,7 +1038,7 @@ local function CacheMovementSpells(fullReset)
     local overrides = MA().spellOverrides or {}
     local classAbilities = MOVEMENT_ABILITIES[class]
     local specAbilities = classAbilities and specId and classAbilities[specId]
-    if EllesmereUI.IS_FOREVER and specId then specAbilities = ForeverMovementList() end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and specId then specAbilities = ForeverMovementList() end
     if specAbilities then
         for _, spellId in ipairs(specAbilities) do
             local spellOverride = overrides[spellId]
@@ -1925,7 +1931,7 @@ local function IsValidTimeSpiralProc(spellId)
     local specId = ResolvePlayerSpecId()
     local classData = MOVEMENT_ABILITIES[class]
     local specSpells = classData and specId and classData[specId]
-    if EllesmereUI.IS_FOREVER and specId then specSpells = ForeverMovementList() end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and specId then specSpells = ForeverMovementList() end
     local matched = false
     if specSpells then
         for _, id in ipairs(specSpells) do
@@ -2126,7 +2132,7 @@ local function UpdateEventRegistration()
     local moveOn = MovementEnabled()
     local anyEnabled = moveOn or ma.tsEnabled or ma.gwEnabled
     if anyEnabled and not baselineEventsRegistered then
-        for _, ev in ipairs(BASELINE_EVENTS) do loader:RegisterEvent(ev) end
+        for _, ev in ipairs(BASELINE_EVENTS) do EUI_SafeRegisterEvent(loader, ev) end
         baselineEventsRegistered = true
         -- The lookup/cache passes are skipped at login while everything is
         -- off, so the first enable must build them (and pick up the real
@@ -2140,7 +2146,7 @@ local function UpdateEventRegistration()
         -- without the options panel ever opening.
         EllesmereUI.AppendSharedMediaTextures(BAR_TEXTURE_NAMES, BAR_TEXTURE_ORDER, nil, BAR_TEXTURES)
     elseif not anyEnabled and baselineEventsRegistered then
-        for _, ev in ipairs(BASELINE_EVENTS) do loader:UnregisterEvent(ev) end
+        for _, ev in ipairs(BASELINE_EVENTS) do EUI_SafeUnregisterEvent(loader, ev) end
         baselineEventsRegistered = false
         CancelAllRechargeTimers()
     end
@@ -2148,7 +2154,7 @@ local function UpdateEventRegistration()
     if moveOn and not movementEventsRegistered then
         loader:RegisterEvent("SPELL_UPDATE_USABLE")
         loader:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-        loader:RegisterEvent("SPELL_UPDATE_CHARGES")
+        EUI_SafeRegisterEvent(loader, "SPELL_UPDATE_CHARGES")
         loader:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
         loader:RegisterUnitEvent("UNIT_AURA", "player")
         -- buffActive lane's identity gate (see BuffAlertAssistable): the
@@ -2158,9 +2164,9 @@ local function UpdateEventRegistration()
         -- covers the addon-cancelled skip, whose faction restore can order
         -- ahead of the edge above (the RF gate carries it for the same reason);
         -- the lane runs no ticker, so a missed restore leaves it hidden.
-        loader:RegisterUnitEvent("UNIT_ENTERING_VEHICLE", "player")
-        loader:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-        loader:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+        EUI_SafeRegisterUnitEvent(loader, "UNIT_ENTERING_VEHICLE", "player")
+        EUI_SafeRegisterUnitEvent(loader, "UNIT_ENTERED_VEHICLE", "player")
+        EUI_SafeRegisterUnitEvent(loader, "UNIT_EXITED_VEHICLE", "player")
         loader:RegisterUnitEvent("UNIT_FACTION", "player")
         loader:RegisterEvent("CINEMATIC_STOP")
         -- The EXITED edge cannot reach a lane whose events are unregistered.
@@ -2169,12 +2175,12 @@ local function UpdateEventRegistration()
     elseif not moveOn and movementEventsRegistered then
         loader:UnregisterEvent("SPELL_UPDATE_USABLE")
         loader:UnregisterEvent("SPELL_UPDATE_COOLDOWN")
-        loader:UnregisterEvent("SPELL_UPDATE_CHARGES")
+        EUI_SafeUnregisterEvent(loader, "SPELL_UPDATE_CHARGES")
         loader:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
         loader:UnregisterEvent("UNIT_AURA")
-        loader:UnregisterEvent("UNIT_ENTERING_VEHICLE")
-        loader:UnregisterEvent("UNIT_EXITED_VEHICLE")
-        loader:UnregisterEvent("UNIT_ENTERED_VEHICLE")
+        EUI_SafeUnregisterEvent(loader, "UNIT_ENTERING_VEHICLE")
+        EUI_SafeUnregisterEvent(loader, "UNIT_EXITED_VEHICLE")
+        EUI_SafeUnregisterEvent(loader, "UNIT_ENTERED_VEHICLE")
         loader:UnregisterEvent("UNIT_FACTION")
         loader:UnregisterEvent("CINEMATIC_STOP")
         movementEventsRegistered = false
@@ -2182,14 +2188,14 @@ local function UpdateEventRegistration()
     end
 
     if ma.tsEnabled and not timeSpiralEventsRegistered then
-        loader:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-        loader:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+        EUI_SafeRegisterEvent(loader, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+        EUI_SafeRegisterEvent(loader, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
         loader:RegisterEvent("UNIT_SPELLCAST_SENT")
         timeSpiralEventsRegistered = true
         RefreshCastFilters()
     elseif not ma.tsEnabled and timeSpiralEventsRegistered then
-        loader:UnregisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-        loader:UnregisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+        EUI_SafeUnregisterEvent(loader, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+        EUI_SafeUnregisterEvent(loader, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
         loader:UnregisterEvent("UNIT_SPELLCAST_SENT")
         timeSpiralEventsRegistered = false
         CancelTimeSpiralCountdown()

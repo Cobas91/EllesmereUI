@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- Blocks\Bags.lua
 -- Bag space block factory.
 
@@ -28,7 +29,9 @@ local IconColorOf          = K.IconColorOf
 
 -- Backpack + four bag slots; the reagent bag is opt-in per block.
 local LAST_BAG    = NUM_BAG_SLOTS or 4
-local REAGENT_BAG = Enum.BagIndex.ReagentBag
+-- Classic Era has no reagent bag (container 5 is a bank bag there): a
+-- sentinel no real bag ID matches keeps the opt-in a no-op.
+local REAGENT_BAG = (not EllesmereUI.IS_CLASSIC_ERA and Enum.BagIndex.ReagentBag) or -999
 
 -- Low space text color default (soft red, matches durability's low tint).
 local LOW_R, LOW_G, LOW_B = 1, 0.35, 0.35
@@ -75,7 +78,7 @@ ns.BlockFactories.bags = function(blockCfg, slot, content, barCtx)
                 free = free + (nFree or 0)
             end
         end
-        if IncludeBag(REAGENT_BAG) then
+        if REAGENT_BAG ~= -999 and IncludeBag(REAGENT_BAG) then
             total = total + (C_Container.GetContainerNumSlots(REAGENT_BAG) or 0)
             free = free + (C_Container.GetContainerNumFreeSlots(REAGENT_BAG) or 0)
         end
@@ -191,7 +194,7 @@ ns.BlockFactories.bags = function(blockCfg, slot, content, barCtx)
         ns.Tip_AddLine(L["BAGS"], 1, 1, 1)
         ns.Tip_AddLine(" ")
         for bag = 0, LAST_BAG do AddBagRow(bag) end
-        if IncludeBag(REAGENT_BAG) then AddBagRow(REAGENT_BAG) end
+        if REAGENT_BAG ~= -999 and IncludeBag(REAGENT_BAG) then AddBagRow(REAGENT_BAG) end
         ns.Tip_AddLine(" ")
         ns.Tip_AddDouble(L["FREE"], free .. "/" .. total, 1, 1, 1, 1, 1, 1)
         ns.Tip_AddLine(" ")

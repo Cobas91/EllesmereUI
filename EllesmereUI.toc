@@ -11,6 +11,11 @@
 # Pre-12.1 client failsafe -- MUST load first (arms the per-file guard line)
 EllesmereUI_ClientGate.lua
 
+# Event-registration guards (EUI_SafeRegisterEvent & co.) for every client;
+# the rest of the file is the WoW Classic Era compatibility layer and returns
+# at once elsewhere (EllesmereUI_Vanilla.toc is the Classic Era manifest).
+EllesmereUI_ClassicCompat.lua
+
 # Libraries
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_ResourceBars_ArcaneSoul.lua
 -- 12.1 ONLY: engine-slot driver for the Sunfury Arcane Mage "Arcane Soul" callout.
 --
@@ -659,6 +660,11 @@ end
 -------------------------------------------------------------------------------
 
 local function EnabledForClass()
+    -- Sunfury is a Retail-only Mage hero talent tree (12.1); Classic Era has
+    -- no specializations or hero talents at all, so this callout can never
+    -- gate on correctly and is disabled outright rather than left to the
+    -- (always-false) spec/hero-tree checks in GateOK below.
+    if EllesmereUI.IS_CLASSIC_ERA then return false end
     local p = P()
     return (p and p.enabled and S.class == "MAGE") and true or false
 end
@@ -754,9 +760,9 @@ local function EnsureGateEvents()
     if not S.evGate then
         S.evGate = true
         S.ev:RegisterEvent("PLAYER_ENTERING_WORLD")
-        S.ev:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-        S.ev:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
-        S.ev:RegisterEvent("TRAIT_CONFIG_UPDATED")
+        EUI_SafeRegisterEvent(S.ev, "PLAYER_SPECIALIZATION_CHANGED")
+        EUI_SafeRegisterEvent(S.ev, "ACTIVE_TALENT_GROUP_CHANGED")
+        EUI_SafeRegisterEvent(S.ev, "TRAIT_CONFIG_UPDATED")
     end
     local wantCast = NeedsGcd()
     if wantCast and not S.evCast then

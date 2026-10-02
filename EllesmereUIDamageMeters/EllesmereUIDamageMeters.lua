@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIDamageMeters.lua
 --  Custom damage meter frame using C_DamageMeter API.
@@ -1382,12 +1383,15 @@ local _combatGen = 0     -- monotonic segment token; stale deferred teardowns co
 -- Keystone start: wipe data so Overall = this dungeon run
 -- Keystone end: auto-swap windows from Current to Overall (if enabled)
 local instanceFrame = CreateFrame("Frame")
-instanceFrame:RegisterEvent("CHALLENGE_MODE_START")
-instanceFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+EUI_SafeRegisterEvent(instanceFrame, "CHALLENGE_MODE_START")
+EUI_SafeRegisterEvent(instanceFrame, "CHALLENGE_MODE_COMPLETED")
 instanceFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-instanceFrame:RegisterEvent("DAMAGE_METER_RESET")
-instanceFrame:RegisterEvent("DAMAGE_METER_COMBAT_SESSION_UPDATED")
-instanceFrame:RegisterEvent("DAMAGE_METER_CURRENT_SESSION_UPDATED")
+EUI_SafeRegisterEvent(instanceFrame, "DAMAGE_METER_RESET")
+EUI_SafeRegisterEvent(instanceFrame, "DAMAGE_METER_COMBAT_SESSION_UPDATED")
+EUI_SafeRegisterEvent(instanceFrame, "DAMAGE_METER_CURRENT_SESSION_UPDATED")
+-- Classic Era: the combat-log engine (EllesmereUIDamageMeters_ClassicEngine.lua)
+-- raises these three events itself; nil on every other client.
+if ns.DM_ClassicListen then ns.DM_ClassicListen(instanceFrame) end
 instanceFrame:SetScript("OnEvent", function(_, event)
     if event == "CHALLENGE_MODE_START" then
         if C_DamageMeter and C_DamageMeter.ResetAllCombatSessions then
@@ -1515,6 +1519,8 @@ end)
 
 -- CVar helper
 local function SetCVarSafe(name, value)
+    -- Classic Era has no built-in damage meter, so its CVar does not exist there.
+    if C_CVar and C_CVar.GetCVar and C_CVar.GetCVar(name) == nil then return end
     if C_CVar and C_CVar.SetCVar then
         C_CVar.SetCVar(name, value)
     elseif SetCVar then
@@ -3478,7 +3484,8 @@ local function CreateDMWindow(winIdx)
         }
         -- WoW Forever has no delves and no keystones: the entries only those drive are
         -- left out of the menu there (their saved values stay, and stay inert).
-        if EUI.IS_FOREVER then
+        -- Classic Era has neither.
+        if EUI.IS_FOREVER or EUI.IS_CLASSIC_ERA then
             for i = #items, 1, -1 do
                 local e = items[i]
                 if type(e) == "table" and e.noForever then table.remove(items, i) end
@@ -6243,8 +6250,8 @@ local combatFrame = CreateFrame("Frame")
 combatFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 combatFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
-combatFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-combatFrame:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED")
+EUI_SafeRegisterEvent(combatFrame, "PLAYER_SPECIALIZATION_CHANGED")
+EUI_SafeRegisterEvent(combatFrame, "ADDON_RESTRICTION_STATE_CHANGED")
 combatFrame:RegisterEvent("UNIT_FLAGS")
 combatFrame:RegisterEvent("ENCOUNTER_START")
 combatFrame:RegisterEvent("ENCOUNTER_END")
@@ -6417,8 +6424,8 @@ do
     local _pvpBlockUntil = 0
 
     local pvpFrame = CreateFrame("Frame")
-    pvpFrame:RegisterEvent("PVP_MATCH_COMPLETE")
-    pvpFrame:RegisterEvent("PVP_MATCH_STATE_CHANGED")
+    EUI_SafeRegisterEvent(pvpFrame, "PVP_MATCH_COMPLETE")
+    EUI_SafeRegisterEvent(pvpFrame, "PVP_MATCH_STATE_CHANGED")
     pvpFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     pvpFrame:SetScript("OnEvent", function()
         if not C_PvP or not C_PvP.IsMatchActive then return end

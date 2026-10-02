@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_PartyMode_Options.lua
 --  Party Mode options page for EllesmereUI
@@ -310,7 +311,7 @@ do
                 if rl then for i = 1, #rl do rl[i]() end end
             end }
 
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             -- WoW Forever has no keystones, no rated PvP, no Sated or Exhaustion
             -- debuffs for the Bloodlust trigger and no Mythic, Heroic or Raid
             -- Finder difficulties, and its vanilla raids report difficulty 9 or

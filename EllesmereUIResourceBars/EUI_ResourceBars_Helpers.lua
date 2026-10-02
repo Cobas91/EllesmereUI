@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_ResourceBars_Options.lua
 --  Registers the Resource Bars module with EllesmereUI
@@ -23,7 +24,7 @@ ns._ERB_IsThresholdCardShadowed = function(entries, idx)
     -- WoW Forever: the class resolves as one spec (ns.ForeverThresholdPick; nil
     -- = All Specs only), so a live card naming specs of the player's class, none
     -- of them that one, never applies on this character.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local pick = ns.ForeverThresholdPick(entries)
         if not ns.ThresholdCardLiveFor(cur, pick) then
             for _, s in ipairs(cur.specIDs) do
@@ -129,7 +130,7 @@ local SpecName = function(specID)
 	if specID == 0 then return "All Specs" end
 	-- WoW Forever: the spec and class names from the shared spec table, in the
 	-- same "<Spec> <Class>" shape as below.
-	if EllesmereUI.IS_FOREVER then
+	if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
 		local token = EllesmereUI.SpecClassOf(specID)
 		if token then
 			local sn, cn = EllesmereUI.RetailSpecName(specID), EllesmereUI.ForeverClassName(token)
@@ -150,7 +151,7 @@ ns.EntryLabel = function(entry)
 	local names = {}
 	-- WoW Forever: a class the card holds whole reads as the class; a partial
 	-- class lists its specs, so cards for different specs stay distinct.
-	if EllesmereUI.IS_FOREVER then
+	if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
 		local held, done = {}, {}
 		for _, sid in ipairs(entry.specIDs) do held[sid] = true end
 		for _, sid in ipairs(entry.specIDs) do
@@ -189,7 +190,7 @@ ns.IsBarTypeSecondary = function()
 	if info and info.power == "IGNOREPAIN_BAR" then return true end         -- Prot Warrior Ignore Pain bar
 	-- WoW Forever: no bar-type class resource exists there (the runtime never
 	-- builds one), so the retail spec positions below do not apply.
-	if EllesmereUI.IS_FOREVER then return false end
+	if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return false end
 	if cf == "DRUID" and spec == 1 then return true end                     -- Balance (Astral Power bar)
 	if cf == "SHAMAN" and spec == 1 then return true end                    -- Elemental
 	if cf == "PRIEST" and spec == 3 then return true end                    -- Shadow
@@ -275,7 +276,7 @@ ns.ThresholdNoticeInfo = function(bd, pageSpecID)
 	if not entries or #entries == 0 then return nil end
 	local activeSpecID = _G._ERB_ResolveSpecIDCached and _G._ERB_ResolveSpecIDCached()
 	-- WoW Forever: the spec the thresholds resolve as (ns.ForeverThresholdPick; nil = All Specs only).
-	if EllesmereUI.IS_FOREVER then
+	if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
 		activeSpecID = ns.ForeverThresholdPick(entries)
 	end
 	local names, seen, active = {}, {}, false

@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_AuraBuffReminders_Options.lua
 --  Registers the AuraBuff Reminders module with EllesmereUI
@@ -14,11 +15,14 @@ local PAGE_UNLOCK    = "Unlock Mode"
 
 -- WoW Forever: the page keeps CORE and DISPLAY and swaps every retail section
 -- for the one Forever section (Camp Benefits + custom spell IDs); the Talent
--- Reminders page does not exist there.
-local FOREVER = EllesmereUI.IS_FOREVER == true
+-- Reminders page does not exist there. Classic Era runs the same reduced page
+-- (vanilla buffs have per-rank spell IDs the retail sections cannot match),
+-- minus Forever's Camp Benefits, which that client does not have.
+local FOREVER = EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true
+local CLASSIC_ERA = EllesmereUI.IS_CLASSIC_ERA == true
 
 local SECTION_CORE         = "CORE"
-local SECTION_FOREVER      = "WOW FOREVER"
+local SECTION_FOREVER      = CLASSIC_ERA and "BUFF REMINDERS" or "WOW FOREVER"
 local SECTION_DISPLAY      = "DISPLAY"
 local SECTION_RAID_BUFFS   = "RAID BUFFS"
 local SECTION_AURAS        = "AURAS"
@@ -1375,13 +1379,15 @@ initFrame:SetScript("OnEvent", function(self)
             -- Where to Show | Reminder Sound
             _, h = SectionControlRow(parent, y, {
                 whereStore = FWhere, whereItems = FOREVER_WHERE_ITEMS,
-                whereTooltip = "Pick which content the WoW Forever reminders appear in.\nRested areas (cities and inns) always stay hidden.",
+                whereTooltip = CLASSIC_ERA and "Pick which content the buff reminders appear in.\nRested areas (cities and inns) always stay hidden."
+                    or "Pick which content the WoW Forever reminders appear in.\nRested areas (cities and inns) always stay hidden.",
                 soundSec = FDB, soundField = "sectionSound",
                 onChange = RefreshAll,
             });  y = y - h
 
             -- Camp Benefits | Add Custom Spell
             _, h = W:DualRow(parent, y,
+                CLASSIC_ERA and { type="label", text="" } or
                 { type="toggle", text="Camp Benefits",
                   tooltip="Reminds you when the Camp Benefits campfire buff is missing.",
                   getValue=function() local f = FDB(); return not f or f.camp ~= false end,

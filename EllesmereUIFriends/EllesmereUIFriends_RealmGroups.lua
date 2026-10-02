@@ -1,4 +1,9 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+-- Classic Era: its friends window is the vanilla layout (FriendsFrameFriendsScrollFrame,
+-- no FriendsListFrame.ScrollBox) this module is not built for -- it stays off there
+-- as it does on WoW Forever, and Blizzard's own friends list is left as is.
+if EllesmereUI and EllesmereUI.IS_CLASSIC_ERA then return end
 -------------------------------------------------------------------------------
 --  EllesmereUIFriends_RealmGroups.lua
 --  Realm -> mini-region lookup tables for friend region detection.

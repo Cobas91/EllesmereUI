@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  ResourceBars_Options\BarDisplayPage_Options.lua
 --  Resource Bars options: Class, Power and Health Bars page. Definitions only; the shared
@@ -799,8 +800,10 @@ function ns.ERB_BuildBarDisplayPage(pageName, parent, yOffset)
             EVOKER = { [3] = { "Ebon Might", "Mana" } },
         }
         local classAlts = SPEC_POWER_ALTS[playerClass]
-        -- Retail only: WoW Forever has no specs (see the druid row below).
-        if classAlts and not EllesmereUI.IS_FOREVER then
+        -- Retail only: WoW Forever and Classic Era have no specs (see the druid row below
+        -- for WoW Forever's class-based substitute; Classic Era has no equivalent spec
+        -- concept for this control, so it's simply omitted rather than faked).
+        if classAlts and not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
             local spec = GetSpecialization and GetSpecialization()
             local data = spec and classAlts[spec]
             if data then
@@ -861,7 +864,7 @@ function ns.ERB_BuildBarDisplayPage(pageName, parent, yOffset)
         -- forms, stored under a string key so it never meets a retail spec
         -- ID), then Mana Bar while Shapeshifted, then Spell Cost Prediction.
         -- The cost row needs its engine loaded: the swatch reads its color rule.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local SCP = EllesmereUI.SpellCostPrediction
             -- Off or one of two modes: a view over manaRegenSpark (on/off) and
             -- manaRegenSparkMode (nil = 5-Second Rule), so saved choices read as before.

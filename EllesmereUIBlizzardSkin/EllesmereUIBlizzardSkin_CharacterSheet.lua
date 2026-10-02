@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 --------------------------------------------------------------------------------
 --  Themed Character Sheet
 --------------------------------------------------------------------------------
@@ -631,7 +632,7 @@ local function PreSkinCharacterSheet()
 
         local refresh = CreateFrame("Frame")
         refresh:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-        refresh:RegisterEvent("TRANSMOGRIFY_UPDATE")
+        EUI_SafeRegisterEvent(refresh, "TRANSMOGRIFY_UPDATE")
         refresh:RegisterEvent("UNIT_MODEL_CHANGED")
         refresh:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
         refresh:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -1666,7 +1667,8 @@ local function SkinCharacterSheet()
 
         -- M+ Score if enabled. PaperDollFrame:IsShown() is the truth-source for the
         -- active sub-pane (selectedTab is unreliable on the initial open path).
-        if EllesmereUIDB and EllesmereUIDB.showMythicRating and GetFFD(frame).mythicRatingLabel then
+        if EllesmereUIDB and EllesmereUIDB.showMythicRating and GetFFD(frame).mythicRatingLabel
+            and C_ChallengeMode and C_ChallengeMode.GetOverallDungeonScore then
             local mythicRating = C_ChallengeMode.GetOverallDungeonScore()
             if mythicRating and mythicRating > 0 then
                 local score = math.floor(mythicRating)
@@ -1697,12 +1699,12 @@ local function SkinCharacterSheet()
         "GET_ITEM_INFO_RECEIVED",
     }
     frame:HookScript("OnShow", function()
-        for _, ev in ipairs(_ILVL_EVENTS) do iLvlUpdateFrame:RegisterEvent(ev) end
+        for _, ev in ipairs(_ILVL_EVENTS) do EUI_SafeRegisterEvent(iLvlUpdateFrame, ev) end
     end)
     frame:HookScript("OnHide", function() iLvlUpdateFrame:UnregisterAllEvents() end)
     -- The build runs inside the first OnShow, after that open's hooks fired.
     if frame:IsShown() then
-        for _, ev in ipairs(_ILVL_EVENTS) do iLvlUpdateFrame:RegisterEvent(ev) end
+        for _, ev in ipairs(_ILVL_EVENTS) do EUI_SafeRegisterEvent(iLvlUpdateFrame, ev) end
     end
     local _betterItemsRefreshTimer
     local function QueueBetterItemsRefresh()
@@ -2286,14 +2288,14 @@ local function SkinCharacterSheet()
     end)
     -- Same dynamic-registration trick as statsEventFrame below.
     frame:HookScript("OnShow", function()
-        for _, ev in ipairs(_SPEC_EVENTS) do specUpdateFrame:RegisterEvent(ev) end
+        for _, ev in ipairs(_SPEC_EVENTS) do EUI_SafeRegisterEvent(specUpdateFrame, ev) end
     end)
     frame:HookScript("OnHide", function()
         specUpdateFrame:UnregisterAllEvents()
     end)
     -- The build runs inside the first OnShow, after that open's hooks fired.
     if frame:IsShown() then
-        for _, ev in ipairs(_SPEC_EVENTS) do specUpdateFrame:RegisterEvent(ev) end
+        for _, ev in ipairs(_SPEC_EVENTS) do EUI_SafeRegisterEvent(specUpdateFrame, ev) end
     end
     frame:HookScript("OnShow", function()
         RefreshAttributeStats()
@@ -2964,14 +2966,14 @@ local function SkinCharacterSheet()
     end)
     -- Register only while the sheet is open: UNIT_STATS/COMBAT_RATING_UPDATE fire many times a second in combat, and dispatch alone is a measurable idle cost.
     frame:HookScript("OnShow", function()
-        for _, ev in ipairs(_STATS_EVENTS) do statsEventFrame:RegisterEvent(ev) end
+        for _, ev in ipairs(_STATS_EVENTS) do EUI_SafeRegisterEvent(statsEventFrame, ev) end
     end)
     frame:HookScript("OnHide", function()
         statsEventFrame:UnregisterAllEvents()
     end)
     -- The build runs inside the first OnShow, after that open's hooks fired.
     if frame:IsShown() then
-        for _, ev in ipairs(_STATS_EVENTS) do statsEventFrame:RegisterEvent(ev) end
+        for _, ev in ipairs(_STATS_EVENTS) do EUI_SafeRegisterEvent(statsEventFrame, ev) end
     end
     -- Refresh once on open, in case no event fired since the last close.
     frame:HookScript("OnShow", function()
@@ -3323,7 +3325,7 @@ local function SkinCharacterSheet()
     -- Learning a title invalidates the build cache so the next filter rebuilds;
     -- the event is rare enough that one full rebuild on that edge is fine.
     local _titlesInvalidator = CreateFrame("Frame")
-    _titlesInvalidator:RegisterEvent("KNOWN_TITLES_UPDATE")
+    EUI_SafeRegisterEvent(_titlesInvalidator, "KNOWN_TITLES_UPDATE")
     _titlesInvalidator:SetScript("OnEvent", function()
         _titlesBuilt = false
         wipe(_titlesOrder)
@@ -3976,7 +3978,7 @@ local function SkinCharacterSheet()
     -- Hydration (2 global): must hear item load while Character is closed after
     -- /reload. UNIT_INVENTORY_CHANGED + SOCKET_INFO_UPDATE (2 OnShow-only) below.
     if CharSheetGemsActive() then
-        socketWatcher:RegisterEvent("TOOLTIP_DATA_UPDATE")
+        EUI_SafeRegisterEvent(socketWatcher, "TOOLTIP_DATA_UPDATE")
         socketWatcher:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     end
     socketWatcher:SetScript("OnEvent", function(_, event, arg1)
@@ -4003,7 +4005,7 @@ local function SkinCharacterSheet()
     frame:HookScript("OnShow", function()
         -- Non-hydration high-frequency events: only while the sheet is visible.
         socketWatcher:RegisterEvent("UNIT_INVENTORY_CHANGED")
-        socketWatcher:RegisterEvent("SOCKET_INFO_UPDATE")
+        EUI_SafeRegisterEvent(socketWatcher, "SOCKET_INFO_UPDATE")
         -- Sockets and the container only matter on the Character tab.
         local isCharacterTab = (frame.selectedTab or 1) == 1
         if isCharacterTab then
@@ -4018,7 +4020,7 @@ local function SkinCharacterSheet()
 
     frame:HookScript("OnHide", function()
         socketWatcher:UnregisterEvent("UNIT_INVENTORY_CHANGED")
-        socketWatcher:UnregisterEvent("SOCKET_INFO_UPDATE")
+        EUI_SafeUnregisterEvent(socketWatcher, "SOCKET_INFO_UPDATE")
         if _socketRefreshTimer then
             _socketRefreshTimer:Cancel()
             _socketRefreshTimer = nil
@@ -4211,8 +4213,8 @@ local function SkinCharacterSheet()
             if on then
                 monitor:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
                 monitor:RegisterEvent("UNIT_INVENTORY_CHANGED")
-                monitor:RegisterEvent("SOCKET_INFO_UPDATE")
-                monitor:RegisterEvent("ITEM_UPGRADE_MASTER_UPDATE")
+                EUI_SafeRegisterEvent(monitor, "SOCKET_INFO_UPDATE")
+                EUI_SafeRegisterEvent(monitor, "ITEM_UPGRADE_MASTER_UPDATE")
             else
                 monitor:UnregisterAllEvents()
             end
@@ -4330,7 +4332,7 @@ end
 -- Show/hide the Upgrades calc tab from upgradeCalcOpts.showCalcButton (live toggle).
 local function ApplyCharSheetCalcTab()
     -- Part of the retail makeover: nothing to hang it on under WoW Forever.
-    if EllesmereUI.IS_FOREVER then return end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
     if not CharacterFrame then return end
     if not skinned then return end
     if EllesmereUIDB and (EllesmereUIDB.themedCharacterSheet == false or EllesmereUI.BlizzWindowSkinsKilled()) then
@@ -4356,7 +4358,7 @@ end
 -- Show/Hide and arrow reversal do not reset alpha, so no hooks are needed.
 local slotFlyoutArrowsHidden = false
 function EllesmereUI._refreshCharSheetSlotFlyoutArrows()
-    local hide = not EllesmereUI.IS_FOREVER and EllesmereUIDB
+    local hide = not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUIDB
         and EllesmereUIDB.charSheetHideSlotFlyoutArrows == true
         and EllesmereUIDB.themedCharacterSheet ~= false
         and not EllesmereUI.BlizzWindowSkinsKilled()
@@ -4390,7 +4392,7 @@ local function ApplyThemedCharacterSheet()
     -- the WoW Forever style's slot text there are
     -- EllesmereUIBlizzardSkin_CharacterSheetForever.lua, and the other stock
     -- styles keep Blizzard's own sheet untouched.
-    if EllesmereUI.IS_FOREVER then return end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
     if EllesmereUIDB and (EllesmereUIDB.themedCharacterSheet == false or EllesmereUI.BlizzWindowSkinsKilled()) then
         return
     end
@@ -4411,7 +4413,7 @@ if EllesmereUI then
         self:UnregisterEvent("PLAYER_LOGIN")
         -- WoW Forever: none of this (pre-skin, portrait suppression, the
         -- makeover, the equipment-set watcher) runs; see the Forever file.
-        if EllesmereUI.IS_FOREVER then return end
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end
         if CharacterFrame then
             EllesmereUI._refreshCharSheetSlotFlyoutArrows()
             -- Pre-skin runs early, while CharacterFrame is still hidden; running it
@@ -4522,7 +4524,7 @@ if EllesmereUI then
             -- Auto-equip equipment set when spec changes
             local specChangeFrame = CreateFrame("Frame")
             local lastSpecIndex = GetSpecialization()
-            specChangeFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+            EUI_SafeRegisterEvent(specChangeFrame, "PLAYER_SPECIALIZATION_CHANGED")
             specChangeFrame:SetScript("OnEvent", function()
                 -- Auto-equip when spec actually changes (not just event noise)
                 local currentSpecIndex = GetSpecialization()

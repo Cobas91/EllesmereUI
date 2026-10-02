@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_UnitFrames_Options.lua
 --  Registers the Unit Frames module with EllesmereUI
@@ -16,7 +17,7 @@ local PAGE_UNLOCK    = "Unlock Mode"
 
 -- Threat % Position dropdown (WoW Forever only, so nil on retail). On ns: the
 -- Main Frames page builder is near its 60-upvalue cap.
-if EllesmereUI.IS_FOREVER then
+if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
     ns._threatPctPositions = { RIGHT = "Inside Right", LEFT = "Inside Left", CENTER = "Inside Center" }
     ns._threatPctPositionOrder = { "RIGHT", "LEFT", "CENTER" }
 end
@@ -3165,7 +3166,7 @@ initFrame:SetScript("OnEvent", function(self)
         -- WoW Forever: the pet's happiness icon (the happy face as the sample),
         -- placed each Update beside the frame as the live icon is. It sits on
         -- its own frame so the page's click overlay shows and hides with it.
-        if unitKey == "pet" and EllesmereUI.IS_FOREVER == true then
+        if unitKey == "pet" and (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
             local happyInd = CreateFrame("Frame", nil, pf)
             happyInd:SetFrameLevel(pf:GetFrameLevel() + 20)
             local happyTex = happyInd:CreateTexture(nil, "OVERLAY")
@@ -7099,7 +7100,7 @@ initFrame:SetScript("OnEvent", function(self)
         -- Threat % text (WoW Forever only): one profile-wide setting for both
         -- frames, drawn on the EllesmereUI frames only. Built before the
         -- half-empty Blizz header row so its blank stays the last slot.
-        if EllesmereUI.IS_FOREVER and (selectedUnit == "target" or selectedUnit == "focus") then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and (selectedUnit == "target" or selectedUnit == "focus") then
             local NO_FRAMES = "This option requires an EllesmereUI Target or Focus frame."
             local function noFrames() return not (frames.target or frames.focus) end
             local function pctOff() return noFrames() or not db.profile.threatPctEnabled end
@@ -9798,7 +9799,7 @@ initFrame:SetScript("OnEvent", function(self)
             -- offsets (EUI_UnitFrames_ForeverFormBar.lua); unset, they follow
             -- the power text's.
             local _, cpClass = UnitClass("player")
-            if EllesmereUI.IS_FOREVER == true and selectedUnit == "player" and cpClass == "DRUID" then
+            if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) and selectedUnit == "player" and cpClass == "DRUID" then
                 local function NoFormBar() return not SVal("foreverFormBar", false) end
                 local function FormOffset(key, base)
                     local v = SVal(key, nil)
@@ -10103,7 +10104,7 @@ initFrame:SetScript("OnEvent", function(self)
                 end)
             end
         end
-        if selectedUnit == "player" and EllesmereUI.IS_FOREVER == true then
+        if selectedUnit == "player" and (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
             -- Mana Regen Spark (EllesmereUI_ManaRegenSpark.lua), the section's
             -- last row; warriors and rogues get no spark engine, so no row. A
             -- druid's Power Type shares it: one choice for every form, stored
@@ -10177,7 +10178,7 @@ initFrame:SetScript("OnEvent", function(self)
             local classAlts = SPEC_POWER_ALTS[playerClass]
             -- Retail only: these alternatives are retail spec resources, and the
             -- WoW Forever classes have no specs to key them on.
-            if classAlts and not EllesmereUI.IS_FOREVER then
+            if classAlts and not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                 local GetSpec = C_SpecializationInfo.GetSpecialization
                 -- Labels follow the CURRENT spec: the page is built once and
                 -- cached, so they are refilled on every spec change (see
@@ -12179,7 +12180,7 @@ initFrame:SetScript("OnEvent", function(self)
               -- Under the WoW Forever style the entry is the combo point arc
               -- round the target portrait instead, and stays live.
               disabledValues=function(k)
-                  if k == "blizzard" and EllesmereUI.IS_FOREVER and not EllesmereUI.BlizzStyle.Forever("unitframes") then
+                  if k == "blizzard" and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and not EllesmereUI.BlizzStyle.Forever("unitframes") then
                       return "This option requires the WoW Forever style."
                   end
                   -- One owner for Blizzard's class resource frame: while Resource
@@ -13216,7 +13217,7 @@ initFrame:SetScript("OnEvent", function(self)
                         if ps.buffFilters and next(ps.buffFilters) then
                             -- WoW Forever: visible filters only (a hidden retail
                             -- preset shows nothing on this client).
-                            if not EllesmereUI.IS_FOREVER then return true end
+                            if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return true end
                             for fid in pairs(ps.buffFilters) do
                                 if not ns.PAB_HiddenPresetFilter(fid) then return true end
                             end
@@ -16874,7 +16875,7 @@ initFrame:SetScript("OnEvent", function(self)
         -- hunter pets track happiness (PET HAPPINESS, below the power bar).
         -- Retail builds neither.
         local petOpts, petPower, happyHeader, happyRow
-        if EllesmereUI.IS_FOREVER == true then
+        if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
             petPower = ns.UF_PetHasPower and not EllesmereUI.BlizzStyle.Get("unitframes")
             local P = db.profile.pet
             local function happyOff() return P.happinessEnabled == false end
@@ -18628,7 +18629,7 @@ initFrame:SetScript("OnEvent", function(self)
 
     -- Rebuild preview when spec changes (class resource pips may appear/disappear)
     local ufOptSpecFrame = CreateFrame("Frame")
-    ufOptSpecFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    EUI_SafeRegisterEvent(ufOptSpecFrame, "PLAYER_SPECIALIZATION_CHANGED")
     ufOptSpecFrame:SetScript("OnEvent", function(_, _, unit)
         if unit ~= "player" then return end
         -- Only invalidate + rebuild when the panel is actually open. Invalidating while

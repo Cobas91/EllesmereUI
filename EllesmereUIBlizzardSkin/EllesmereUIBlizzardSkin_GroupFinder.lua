@@ -1,4 +1,8 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+-- Classic Era has no PVEFrame (Dungeon Finder / Premade Groups / Mythic+): its
+-- looking-for-group tool is a different window, so this skin never applies there.
+if EllesmereUI and EllesmereUI.IS_CLASSIC_ERA then return end
 -------------------------------------------------------------------------------
 --  EllesmereUIBlizzardSkin_GroupFinder.lua
 --  Dark, minimal reskin of Blizzard's Group Finder window (PVEFrame): Dungeon

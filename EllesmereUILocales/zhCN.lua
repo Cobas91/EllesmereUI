@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- Simplified Chinese localization for EllesmereUI. Community-maintained.
 -- Encoding: UTF-8 without BOM. See CONTRIBUTING_TRANSLATIONS.md.
 -- Keep static keys aligned with Locales/_keys.txt; harvest runtime-only keys with /euiloc.

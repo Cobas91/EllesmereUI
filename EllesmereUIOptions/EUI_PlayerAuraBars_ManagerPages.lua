@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_PlayerAuraBars_ManagerPages.lua
 --  Single "Player Aura Bars" tab: sidebar lists the two fixed default bars
@@ -469,7 +470,7 @@ local function BuildAssignedBuffsFields(frame, fontPath, sy, cfg, apply, isDefau
         if not ns.PAB_BuffBarHasContent(cfg, isDefault) then return false end
         -- WoW Forever: visibleOnly counts only the Show-lane filters this client
         -- lists, so a bar whose sole content is a hidden retail preset warns.
-        local visibleOnly = EllesmereUI.IS_FOREVER and cfg.filters
+        local visibleOnly = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and cfg.filters
             and cfg.showAllBuffs == false and cfg.hasDuration ~= true
             and not (cfg.spells and #cfg.spells > 0)
         if not visibleOnly then return true end
@@ -2769,7 +2770,7 @@ function ns.PABMP_BuildPage(pageName, parent, yOffset)
     -- that class renders now: a group view resets to All Specs and a spec
     -- view follows its class's current bucket (it moves with the profile and
     -- when that bucket loses its last bar or per-spec disable).
-    if EllesmereUI.IS_FOREVER and pabSpecSel ~= "allspecs" then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and pabSpecSel ~= "allspecs" then
         local m = type(pabSpecSel) == "string" and pabSpecSel:match("^spec(%d+)$")
         local cls = m and EllesmereUI.SpecClassOf(tonumber(m))
         pabSpecSel = (cls and ns.PAB_ForeverKey(cls)) or "allspecs"

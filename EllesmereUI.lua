@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI.lua  -  Custom Options Panel, shared across the whole EUI suite.
 --  Scaffold: background, sidebar, header, content area, controls.
@@ -621,7 +622,7 @@ function EllesmereUI.CreatePortalFlyout(opts)
     flyout:SetScript("OnShow", function(self)
         self:RegisterEvent("SPELL_UPDATE_COOLDOWN")
         for _, ev in ipairs(CAST_EVENTS) do
-            if opts.unitEvents then self:RegisterUnitEvent(ev, "player") else self:RegisterEvent(ev) end
+            if opts.unitEvents then EUI_SafeRegisterUnitEvent(self, ev, "player") else EUI_SafeRegisterEvent(self, ev) end
         end
         RefreshPortalButtons()
         ResolveHearthButtons()
@@ -775,9 +776,19 @@ EllesmereUI.FOREVER_HIDDEN_ADDONS = {
 EllesmereUI.FOREVER_ONLY_ADDONS = {
     EllesmereUIForeverEssentials = true,
 }
+-- Classic Era build: the modules this port does not ship (Mythic+ timer,
+-- Cooldown Manager, the Forever-only Essentials) and the Dragon Riding
+-- pseudo-folder (its file returns at load there).
+EllesmereUI.CLASSIC_ERA_HIDDEN_ADDONS = {
+    EllesmereUIMythicTimer = true, EllesmereUICooldownManager = true,
+    EllesmereUIForeverEssentials = true, EllesmereUIDragonRiding = true,
+    EllesmereUIFriends = true,
+}
 -- The set the running client leaves out.
 EllesmereUI._CLIENT_HIDDEN_ADDONS = (EUI_CLIENT_FOREVER == true)
-    and EllesmereUI.FOREVER_HIDDEN_ADDONS or EllesmereUI.FOREVER_ONLY_ADDONS
+    and EllesmereUI.FOREVER_HIDDEN_ADDONS
+    or (EUI_CLIENT_CLASSIC_ERA == true and EllesmereUI.CLASSIC_ERA_HIDDEN_ADDONS)
+    or EllesmereUI.FOREVER_ONLY_ADDONS
 -- The profile import/export checklists read the profile data map, which stays
 -- complete (it drives the data itself); they list through this view instead.
 function EllesmereUI.VisibleProfileAddons(map)
@@ -811,9 +822,22 @@ EllesmereUI._FOREVER_ICON = {
     [7549094] = 136249,   -- Bags "Gear Enhancements": classic enchantment icon
     [7548925] = 134332,   -- Bags "Professions": classic trade-skill icon
 }
+-- Classic Era predates the same icons, so it takes the same stand-ins, plus
+-- the default bag category icons its vanilla art set also lacks (in-game:
+-- green squares). Paths, not file ids: every one is a 1.x icon.
+EllesmereUI._CLASSIC_ERA_ICON = {
+    [3751725] = "Interface\\Icons\\INV_Sword_04",      -- Bags "Weapons / Trinkets"
+    [4382688] = "Interface\\Icons\\INV_Chest_Chain",   -- Bags "Armor"
+    [4871338] = "Interface\\Icons\\INV_Shoulder_02",   -- Bags "Item Set Gear"
+    [5524917] = "Interface\\Icons\\INV_Misc_Bag_08",   -- Bags "Miscellaneous"
+    [3622222] = "Interface\\Icons\\INV_Misc_Bag_10",   -- Bags "Reagent Bag"
+    [7726459] = "Interface\\Icons\\INV_Misc_Key_03",   -- Bags "Housing"
+}
 function EllesmereUI.ClientIcon(icon)
-    if EUI_CLIENT_FOREVER ~= true then return icon end
-    return EllesmereUI._FOREVER_ICON[icon] or icon
+    if EUI_CLIENT_FOREVER ~= true and EUI_CLIENT_CLASSIC_ERA ~= true then return icon end
+    return EllesmereUI._FOREVER_ICON[icon]
+        or (EUI_CLIENT_CLASSIC_ERA == true and EllesmereUI._CLASSIC_ERA_ICON[icon])
+        or icon
 end
 
 -- The trash can on a delete button: Blizzard's atlas where the client has it,
@@ -1608,7 +1632,7 @@ do
     -- Crit for the running client: the Forever pick there, the retail rule here.
     -- Returns percent, rating index.
     function EllesmereUI.PlayerCritChance()
-        if EllesmereUI.IS_FOREVER then return EllesmereUI.ForeverCritChance() end
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return EllesmereUI.ForeverCritChance() end
         local ranged, melee = GetRangedCritChance(), GetCritChance()
         local spell, school = GetSpellCritChance(2), 2
         local secret = issecretvalue(ranged) or issecretvalue(melee) or issecretvalue(spell)
@@ -1733,10 +1757,19 @@ end
 EllesmereUI._RefreshSpecID = function()
     local spec = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization()
     EllesmereUI._specID = (spec and C_SpecializationInfo.GetSpecializationInfo(spec)) or 0
+    -- Classic Era reports no specialization. It stands in as the class's
+    -- WoW Forever spec ID (one spec per class, same vanilla classes), so the
+    -- Forever spec translation (EllesmereUI_Presets.lua) keys every spec store
+    -- for it exactly as it does on that client.
+    if EllesmereUI.IS_CLASSIC_ERA and (EllesmereUI._specID == 0 or type(EllesmereUI._specID) ~= "number") then
+        local _, token = UnitClass("player")
+        EllesmereUI._specID = (EllesmereUI.FOREVER_CLASS_SPEC and token
+            and EllesmereUI.FOREVER_CLASS_SPEC[token]) or 0
+    end
 end
 EllesmereUI._specWatcher = EllesmereUI._specWatcher or CreateFrame("Frame")
 EllesmereUI._specWatcher:RegisterEvent("PLAYER_LOGIN")
-EllesmereUI._specWatcher:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+EUI_SafeRegisterEvent(EllesmereUI._specWatcher, "PLAYER_SPECIALIZATION_CHANGED")
 EllesmereUI._specWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
 EllesmereUI._specWatcher:SetScript("OnEvent", EllesmereUI._RefreshSpecID)
 

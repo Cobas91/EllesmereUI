@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_UnlockMode.lua
 --  Unlock Mode: animated transition, grid overlay, draggable movers, snap
@@ -1334,7 +1335,7 @@ local function ValidateStoredLinks()
     -- client on the same terms (its other end live, a unit frame key, or
     -- another such key).
     local function clientAbsent(key)
-        return EllesmereUI.IS_FOREVER == true
+        return (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true)
             and (key == "FavorBar" or key == "EUI_BattleRes" or key == "EUI_Bloodlust")
     end
     local function LinkGone(childKey, targetKey)
@@ -3152,7 +3153,7 @@ do
         end
         if not specID or specID == 0 then return nil end
         -- WoW Forever: the spec the class acts as for Spec Overrides.
-        if EllesmereUI.IS_FOREVER and EllesmereUI.SpecOverrides_CurrentSpecID then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.SpecOverrides_CurrentSpecID then
             specID = EllesmereUI.SpecOverrides_CurrentSpecID() or specID
         end
         local groups = Groups()

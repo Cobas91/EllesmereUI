@@ -1,4 +1,8 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+-- Classic Era: its InspectFrame is the vanilla layout, not the retail sheet this
+-- makeover is built against, so Blizzard's own inspect frame is left alone there.
+if EllesmereUI and EllesmereUI.IS_CLASSIC_ERA then return end
 -------------------------------------------------------------------------------
 --  Themed Inspect Sheet
 --  Mirrors the Character Sheet skinning for inspected characters.

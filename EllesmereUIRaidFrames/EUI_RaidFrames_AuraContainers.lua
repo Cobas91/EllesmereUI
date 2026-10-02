@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_RaidFrames_AuraContainers.lua
 -- 12.1 aura containers for raid/party/extra unit buttons.
 --
@@ -3297,7 +3298,7 @@ end
 -- re-drive the reload directly (the signature check makes a no-change reload cheap).
 local bmRegen = CreateFrame("Frame")
 bmRegen:RegisterEvent("PLAYER_REGEN_ENABLED")
-bmRegen:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+EUI_SafeRegisterEvent(bmRegen, "PLAYER_SPECIALIZATION_CHANGED")
 bmRegen:RegisterEvent("PLAYER_ENTERING_WORLD")
 -- The poison dispel-slot filter depends on Poison Cleansing Totem being talented
 -- (see DispelSlotFilter). Talent edits fire no spec event, and IsPlayerSpell can
@@ -3318,7 +3319,7 @@ local function RecheckTotem()
     ns.RFC_ReloadAll()
 end
 if rfcPlayerClass == "SHAMAN" then
-    bmRegen:RegisterEvent("TRAIT_CONFIG_UPDATED")
+    EUI_SafeRegisterEvent(bmRegen, "TRAIT_CONFIG_UPDATED")
     bmRegen:RegisterEvent("SPELLS_CHANGED")
 end
 bmRegen:SetScript("OnEvent", function(_, event, arg1)
@@ -3354,16 +3355,16 @@ end)
 -- transitions), UNIT_CONNECTION on connect state, UNIT_IN_RANGE_UPDATE on
 -- the range boundary, GROUP_ROSTER_UPDATE on membership churn.
 local assistWatch = CreateFrame("Frame")
-assistWatch:RegisterEvent("UNIT_PHASE")
+EUI_SafeRegisterEvent(assistWatch, "UNIT_PHASE")
 assistWatch:RegisterEvent("UNIT_CONNECTION")
-assistWatch:RegisterEvent("UNIT_IN_RANGE_UPDATE")
+EUI_SafeRegisterEvent(assistWatch, "UNIT_IN_RANGE_UPDATE")
 assistWatch:RegisterEvent("GROUP_ROSTER_UPDATE")
 -- Vehicle occupancy flips assistability for the occupant (the one state where
 -- even the local player's own flags degrade -- see AssistProbe). ENTERING as
 -- well as ENTERED: degradation starts with the boarding transition.
-assistWatch:RegisterEvent("UNIT_ENTERING_VEHICLE")
-assistWatch:RegisterEvent("UNIT_ENTERED_VEHICLE")
-assistWatch:RegisterEvent("UNIT_EXITED_VEHICLE")
+EUI_SafeRegisterEvent(assistWatch, "UNIT_ENTERING_VEHICLE")
+EUI_SafeRegisterEvent(assistWatch, "UNIT_ENTERED_VEHICLE")
+EUI_SafeRegisterEvent(assistWatch, "UNIT_EXITED_VEHICLE")
 -- Cinematics (in-world cutscenes included) fire UNIT_FACTION for EVERY unit
 -- at start and end while assistability flips -- and UNIT_FLAGS does NOT fire
 -- for that transition, so without this edge the gate misses it entirely

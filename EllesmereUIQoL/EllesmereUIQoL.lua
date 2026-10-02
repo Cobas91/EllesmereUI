@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_QoL.lua
 --  Runtime logic for all Quality-of-Life features toggled in the QoL Features
@@ -148,9 +149,9 @@ qolFrame:SetScript("OnEvent", function(self)
 
         local f = CreateFrame("Frame")
         f:RegisterEvent("PLAYER_LOGIN")
-        f:RegisterEvent("NEW_MOUNT_ADDED")
-        f:RegisterEvent("NEW_PET_ADDED")
-        f:RegisterEvent("NEW_TOY_ADDED")
+        EUI_SafeRegisterEvent(f, "NEW_MOUNT_ADDED")
+        EUI_SafeRegisterEvent(f, "NEW_PET_ADDED")
+        EUI_SafeRegisterEvent(f, "NEW_TOY_ADDED")
         f:SetScript("OnEvent", function(self, event)
             if event == "PLAYER_LOGIN" then
                 self:UnregisterEvent("PLAYER_LOGIN")
@@ -353,16 +354,16 @@ qolFrame:SetScript("OnEvent", function(self)
                 containerFrame:RegisterEvent("MAIL_CLOSED")
                 containerFrame:RegisterEvent("BANKFRAME_CLOSED")
                 if C_PlayerInteractionManager then
-                    containerFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+                    EUI_SafeRegisterEvent(containerFrame, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
                 end
                 -- Loot window tracking (see _lootOpen).
                 containerFrame:RegisterEvent("LOOT_OPENED")
                 containerFrame:RegisterEvent("LOOT_CLOSED")
                 if EllesmereUIDB.autoOpenContainersHoldCappedArtisanPayouts == true
                     and C_CurrencyInfo and C_CurrencyInfo.PlayerHasMaxQuantity then
-                    containerFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+                    EUI_SafeRegisterEvent(containerFrame, "CURRENCY_DISPLAY_UPDATE")
                 else
-                    containerFrame:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
+                    EUI_SafeUnregisterEvent(containerFrame, "CURRENCY_DISPLAY_UPDATE")
                 end
                 -- Resume opens deferred while casting, else the deferral stalls until the next bag update.
                 containerFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
@@ -382,11 +383,11 @@ qolFrame:SetScript("OnEvent", function(self)
                 containerFrame:UnregisterEvent("MAIL_CLOSED")
                 containerFrame:UnregisterEvent("BANKFRAME_CLOSED")
                 if C_PlayerInteractionManager then
-                    containerFrame:UnregisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+                    EUI_SafeUnregisterEvent(containerFrame, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
                 end
                 containerFrame:UnregisterEvent("LOOT_OPENED")
                 containerFrame:UnregisterEvent("LOOT_CLOSED")
-                containerFrame:UnregisterEvent("CURRENCY_DISPLAY_UPDATE")
+                EUI_SafeUnregisterEvent(containerFrame, "CURRENCY_DISPLAY_UPDATE")
                 containerFrame:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
                 containerFrame:UnregisterEvent("UNIT_SPELLCAST_STOP")
                 containerFrame:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_STOP")
@@ -662,8 +663,8 @@ qolFrame:SetScript("OnEvent", function(self)
         EllesmereUI._applyScreenshotStatus = ApplyScreenshotStatus
 
         local ssFrame = CreateFrame("Frame")
-        ssFrame:RegisterEvent("SCREENSHOT_SUCCEEDED")
-        ssFrame:RegisterEvent("SCREENSHOT_FAILED")
+        EUI_SafeRegisterEvent(ssFrame, "SCREENSHOT_SUCCEEDED")
+        EUI_SafeRegisterEvent(ssFrame, "SCREENSHOT_FAILED")
         ssFrame:SetScript("OnEvent", function()
             if not EllesmereUIDB or EllesmereUIDB.hideScreenshotStatus ~= false then
                 -- Hide on next frame so Blizzard's handler runs first
@@ -791,7 +792,7 @@ qolFrame:SetScript("OnEvent", function(self)
     --  AH Current Expansion Only (not on WoW Forever: the block, its event and
     --  its options row do not exist there)
     ---------------------------------------------------------------------------
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local ahFrame = CreateFrame("Frame")
         ahFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
         ahFrame:SetScript("OnEvent", function()
@@ -1254,7 +1255,7 @@ qolFrame:SetScript("OnEvent", function(self)
         local cinEventFrame = CreateFrame("Frame")
         cinEventFrame:RegisterEvent("CINEMATIC_START")
         cinEventFrame:RegisterEvent("CINEMATIC_STOP")
-        cinEventFrame:RegisterEvent("PLAY_MOVIE")
+        EUI_SafeRegisterEvent(cinEventFrame, "PLAY_MOVIE")
         cinEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
         cinEventFrame:SetScript("OnEvent", function(self, event)
             if event == "PLAYER_ENTERING_WORLD" then
@@ -1284,7 +1285,7 @@ qolFrame:SetScript("OnEvent", function(self)
     --  Auto Insert Keystone (no keystones on WoW Forever: the block, its events
     --  and its options row do not exist there)
     ---------------------------------------------------------------------------
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local function InsertKeystone()
             if EllesmereUIDB and EllesmereUIDB.autoInsertKeystone == false then return end
             if C_ChallengeMode.GetSlottedKeystoneInfo() then return end
@@ -1304,7 +1305,7 @@ qolFrame:SetScript("OnEvent", function(self)
         end
 
         local ksFrame = CreateFrame("Frame")
-        ksFrame:RegisterEvent("CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN")
+        EUI_SafeRegisterEvent(ksFrame, "CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN")
         ksFrame:RegisterEvent("ADDON_LOADED")
         ksFrame:SetScript("OnEvent", function(self, event, arg1)
             if event == "CHALLENGE_MODE_KEYSTONE_RECEPTABLE_OPEN" then
@@ -1329,7 +1330,7 @@ qolFrame:SetScript("OnEvent", function(self)
     --  premade-group list does not load there, so the block and its options
     --  row do not exist)
     ---------------------------------------------------------------------------
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local lastClickTime  = 0
         local lastClickEntry = nil
         local DOUBLE_CLICK_THRESHOLD = 0.4
@@ -1404,9 +1405,9 @@ qolFrame:SetScript("OnEvent", function(self)
             if on then InstallQuickSignupHooks() end
             if roleFrame then
                 if on then
-                    roleFrame:RegisterEvent("LFG_ROLE_CHECK_SHOW")
+                    EUI_SafeRegisterEvent(roleFrame, "LFG_ROLE_CHECK_SHOW")
                 else
-                    roleFrame:UnregisterEvent("LFG_ROLE_CHECK_SHOW")
+                    EUI_SafeUnregisterEvent(roleFrame, "LFG_ROLE_CHECK_SHOW")
                 end
             end
         end
@@ -1418,7 +1419,7 @@ qolFrame:SetScript("OnEvent", function(self)
     --  Persistent LFG Signup Note (not on WoW Forever: no premade Sign Up dialog
     --  there, so the block and its options row do not exist)
     ---------------------------------------------------------------------------
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local vanilla = LFGListApplicationDialog_Show
         local patched = false
         local copyHooked = false
@@ -1631,7 +1632,7 @@ qolFrame:SetScript("OnEvent", function(self)
     --  Hide Talking Head Frame (the NPC dialogue rectangle during quests/dungeons;
     --  not on WoW Forever: the block, its hook and its options row do not exist there)
     ---------------------------------------------------------------------------
-    if not EllesmereUI.IS_FOREVER then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local function HookTalkingHead()
             local thf = _G.TalkingHeadFrame
             if not thf or EllesmereUI._GetFFD(thf).hooked then return end
@@ -2021,7 +2022,7 @@ do
         leech = true, avoidance = true, speed = true,
     }
     -- WoW Forever has no Mastery or Versatility.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         DEFAULT_STAT_ORDER = { "crit", "haste", "leech", "avoidance", "speed" }
         VALID_STAT.mastery, VALID_STAT.vers = nil, nil
     end
@@ -2169,7 +2170,7 @@ do
         end
 
         local crit, critCR, haste, hasteCR
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             crit, critCR = EllesmereUI.ForeverCritChance()
             haste, hasteCR = EllesmereUI.ForeverHaste()
         else
@@ -2435,10 +2436,10 @@ do
             "UNIT_STATS", "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER",
             "UNIT_SPELL_HASTE",
         }) do
-            statsFrame:RegisterUnitEvent(ev, "player")
+            EUI_SafeRegisterUnitEvent(statsFrame, ev, "player")
         end
         -- Forever can show melee or ranged haste, which change without UNIT_SPELL_HASTE.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             statsFrame:RegisterUnitEvent("UNIT_ATTACK_SPEED", "player")
             statsFrame:RegisterUnitEvent("UNIT_RANGEDDAMAGE", "player")
         end
@@ -2452,7 +2453,7 @@ do
             -- is the edge that catches its footprint back up.
             "PLAYER_REGEN_ENABLED",
         }) do
-            statsFrame:RegisterEvent(ev)
+            EUI_SafeRegisterEvent(statsFrame, ev)
         end
         local _statsPending = false
         -- No runtime unit filter: unit events are engine-filtered to player above;
@@ -3038,7 +3039,7 @@ do
     local mlookGuard = CreateFrame("Frame")
     mlookGuard:SetScript("OnEvent", function(self)
         if IsMouseButtonDown("RightButton") then return end
-        self:UnregisterEvent("GLOBAL_MOUSE_UP")
+        EUI_SafeUnregisterEvent(self, "GLOBAL_MOUSE_UP")
         if IsMouselooking() then MouselookStop() end
     end)
 
@@ -3046,10 +3047,10 @@ do
     mlookBtn:RegisterForClicks("AnyDown", "AnyUp")
     mlookBtn:SetScript("OnClick", function(_, _, down)
         if down then
-            mlookGuard:RegisterEvent("GLOBAL_MOUSE_UP")
+            EUI_SafeRegisterEvent(mlookGuard, "GLOBAL_MOUSE_UP")
             MouselookStart()
         else
-            mlookGuard:UnregisterEvent("GLOBAL_MOUSE_UP")
+            EUI_SafeUnregisterEvent(mlookGuard, "GLOBAL_MOUSE_UP")
             MouselookStop()
         end
     end)
@@ -3346,8 +3347,8 @@ do
             visWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
             visWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
             visWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
-            visWatch:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-            visWatch:RegisterEvent("TRAIT_CONFIG_UPDATED")
+            EUI_SafeRegisterEvent(visWatch, "PLAYER_SPECIALIZATION_CHANGED")
+            EUI_SafeRegisterEvent(visWatch, "TRAIT_CONFIG_UPDATED")
             RefreshCrosshairCutoffRange()
         else
             visWatch:UnregisterAllEvents()
@@ -3643,12 +3644,12 @@ do
             BuildKeepList()
             origOnEvent = UIErrorsFrame:GetScript("OnEvent")
             UIErrorsFrame:SetScript("OnEvent", FilteredOnEvent)
-            UIParent:UnregisterEvent("PING_SYSTEM_ERROR")
+            EUI_SafeUnregisterEvent(UIParent, "PING_SYSTEM_ERROR")
             installed = true
         elseif not on and installed then
             UIErrorsFrame:SetScript("OnEvent", origOnEvent)
             origOnEvent = nil
-            UIParent:RegisterEvent("PING_SYSTEM_ERROR")
+            EUI_SafeRegisterEvent(UIParent, "PING_SYSTEM_ERROR")
             installed = false
         end
     end

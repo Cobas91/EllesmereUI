@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_PartyMode.lua
 --  Full-screen disco spotlight overlay — toggled from Global Settings.
@@ -428,7 +429,7 @@ pmInit:RegisterEvent("PLAYER_LOGOUT")
 -- Sated or Exhaustion debuffs, so the listener never registers there, even when
 -- the saved trigger key is on.
 function EllesmereUI_UpdatePartyModeLustListener()
-    if not EllesmereUI.IS_FOREVER and EllesmereUIDB and EllesmereUIDB.partyModeTriggerBloodlust then
+    if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUIDB and EllesmereUIDB.partyModeTriggerBloodlust then
         _pmSatedPresent = _pmPlayerHasSated()  -- baseline so only NEW edges fire
         pmInit:RegisterUnitEvent("UNIT_AURA", "player")
     else
@@ -459,9 +460,9 @@ pmInit:SetScript("OnEvent", function(self, event, ...)
             EllesmereUI_StartPartyMode()
         end
         -- Register events
-        self:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+        EUI_SafeRegisterEvent(self, "CHALLENGE_MODE_COMPLETED")
         self:RegisterEvent("ENCOUNTER_END")
-        self:RegisterEvent("PVP_MATCH_COMPLETE")
+        EUI_SafeRegisterEvent(self, "PVP_MATCH_COMPLETE")
         -- Start random trigger if enabled
         if EllesmereUIDB and EllesmereUIDB.partyModeTriggerRandom then
             EllesmereUI_StartRandomTrigger()

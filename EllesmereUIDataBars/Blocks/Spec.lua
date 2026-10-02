@@ -1,7 +1,195 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 if EllesmereUI.IS_FOREVER then return end -- one spec per class on WoW Forever, nothing to switch: no factory, no loadout hook (the main file drops the block from BLOCK_TYPES too)
 -- Blocks\Spec.lua
 -- Specialization block factory (spec, loot spec, loadout popups).
+--
+-- CLASSIC ERA: there are no specializations, no loot spec, no talent
+-- loadouts (C_SpecializationInfo/C_ClassTalents/C_Traits all stub to
+-- neutral no-ops per EllesmereUI_ClassicCompat.lua). The whole popup/loadout
+-- machinery below is Retail-only and is skipped entirely; this block
+-- degrades to the closest sensible equivalent -- the player's CLASS (name +
+-- class-color icon), which is the one piece of "what am I playing" info
+-- that still exists. The block stays registered under the same "spec" key
+-- so a saved/imported bar with it keeps showing something useful instead of
+-- an empty slot.
+-------------------------------------------------------------------------------
+
+if EllesmereUI.IS_CLASSIC_ERA then
+    local ADDON_NAME, ns = ...
+    local K = ns.BlockKit
+
+    local CreateFrame = CreateFrame
+    local floor        = math.floor
+    local max           = math.max
+    local min           = math.min
+
+    local ICON_GAP             = K.ICON_GAP
+    local CONTENT_BASE         = K.CONTENT_BASE
+    local InstKey              = K.InstKey
+    local HBudget              = K.HBudget
+    local VSlotW               = K.VSlotW
+    local MaybeRelayout        = K.MaybeRelayout
+    local AttachTextOffset     = K.AttachTextOffset
+    local BlockColorOf         = K.BlockColorOf
+    local IconColorOf          = K.IconColorOf
+
+    -- Universal Blizzard class-icon atlas; same texture/tex-coords on every
+    -- client, Classic Era included -- no per-spec art needed.
+    local CLASS_ICON_TEX = "Interface\\TARGETINGFRAME\\UI-Classes-Circle"
+
+    ns.BlockFactories.spec = function(blockCfg, slot, content, barCtx)
+        local inst = { cfg = blockCfg, slot = slot, content = content, ctx = barCtx }
+        inst.key = InstKey(barCtx, blockCfg)
+
+        local mouseOver = false
+
+        local function D() return blockCfg.settings or {} end
+        local function BC() return barCtx.cfg end
+
+        local classButton = CreateFrame("Button", nil, content)
+        classButton:SetAllPoints()
+        classButton:EnableMouse(true)
+        classButton:RegisterForClicks("AnyUp")
+
+        local classIcon = content:CreateTexture(nil, "OVERLAY"); classIcon:SetSize(16, 16)
+        local classText = content:CreateFontString(nil, "OVERLAY")
+        AttachTextOffset(inst, classText)
+
+        local className, classFile = nil, nil
+        local function UpdateClassInfo()
+            className, classFile = UnitClass("player")
+        end
+
+        local function GetBarDisplayText()
+            local d = D()
+            local text = className or ""
+            if d.useUppercase == true then return text:upper() end
+            return text
+        end
+
+        function inst:Refresh()
+            UpdateClassInfo()
+            local d = D()
+            local barCfg = BC()
+            local barH = barCtx.GetThickness()
+            local fontSize = max(9, floor(CONTENT_BASE * 0.4333 + 0.5))
+            local iconGap = ICON_GAP
+            local isSide = barCtx.IsVertical()
+            local classLabel = GetBarDisplayText()
+
+            ns.SetFont(classText, fontSize, barCfg)
+            classText:SetText(classLabel)
+
+            if classFile and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile] then
+                classIcon:SetTexture(CLASS_ICON_TEX)
+                local coords = CLASS_ICON_TCOORDS[classFile]
+                classIcon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+            end
+
+            local cr, cg, cb = 1, 1, 1
+            if EllesmereUI.GetClassColor and classFile then
+                cr, cg, cb = EllesmereUI.GetClassColor(classFile)
+            end
+
+            if mouseOver then
+                local ar, ag, ab = ns.GetAccent()
+                classText:SetTextColor(ar, ag, ab, 1); classIcon:SetVertexColor(ar, ag, ab, 1)
+            else
+                local br, bgr, bb = BlockColorOf(blockCfg)
+                local ir, ig, ib = IconColorOf(blockCfg)
+                -- Icon keeps the class color by default (no per-block Icon
+                -- Color override), matching the "closest sensible
+                -- equivalent" degrade -- a Mage block should still look
+                -- blue even if the block theme's icon color is unset.
+                if ir == 1 and ig == 1 and ib == 1 and cr then ir, ig, ib = cr, cg, cb end
+                classText:SetTextColor(br, bgr, bb, 1); classIcon:SetVertexColor(ir, ig, ib, 1)
+            end
+
+            -- Show Icon (default ON): hidden drops the icon width and gap entirely.
+            local showIcon = d.showIcon ~= false
+            local iconSz = fontSize + 8
+            if isSide then
+                iconSz = min(iconSz, max(14, floor(CONTENT_BASE * 0.72 + 0.5)))
+            end
+            if not showIcon then iconSz = 0 end
+            if showIcon then
+                classIcon:SetSize(iconSz, iconSz)
+                classIcon:Show()
+            else
+                classIcon:Hide()
+            end
+
+            if isSide then
+                local slotW = VSlotW(inst)
+                local innerW = max(30, slotW - 8)
+                local totalH = 8 + iconSz + 2
+
+                classIcon:ClearAllPoints()
+                classIcon:SetPoint("TOP", content, "TOP", 0, -4)
+
+                ns.SetWrappedText(classText, innerW, "CENTER")
+                classText:ClearAllPoints()
+                if showIcon then
+                    classText:SetPoint("TOP", classIcon, "BOTTOM", 0, -2)
+                else
+                    classText:SetPoint("TOP", content, "TOP", 0, -4)
+                end
+                totalH = totalH + ns.SnapToPixelGrid(classText:GetStringHeight())
+                totalH = max(totalH, barH)
+                content:SetSize(slotW, totalH)
+            else
+                local slotW = HBudget(inst, 120)
+                ns.ResetInlineText(classText, "LEFT")
+                local tw = ns.SnapToPixelGrid(classText:GetStringWidth())
+                local effIconGap = showIcon and iconGap or 0
+                local totalW = min(slotW, iconSz + effIconGap + tw + 4)
+                classIcon:ClearAllPoints(); classIcon:SetPoint("LEFT", content, "LEFT", 0, 0)
+                classText:ClearAllPoints(); classText:SetPoint("LEFT", content, "LEFT", iconSz + effIconGap, 0)
+                content:SetSize(totalW, barH)
+            end
+            classButton:ClearAllPoints(); classButton:SetAllPoints(content)
+            MaybeRelayout(inst)
+        end
+
+        classButton:SetScript("OnEnter", function() mouseOver = true; inst:Refresh() end)
+        classButton:SetScript("OnLeave", function() mouseOver = false; inst:Refresh() end)
+        -- No click action: no spec/loot-spec/loadout popups exist on Classic
+        -- Era, and the old 51-point talent frame opens from its own micro
+        -- button already (see Blocks\MicroMenu.lua) -- nothing useful to
+        -- wire a click to here.
+
+        function inst:Enable()
+            content:Show()
+            UpdateClassInfo()
+            inst:Refresh()
+        end
+
+        function inst:Disable()
+            content:Hide()
+        end
+
+        function inst:GetAutoLength()
+            local barH = barCtx.GetThickness()
+            if barCtx.IsVertical() then
+                local fontSize = max(9, floor(CONTENT_BASE * 0.4333 + 0.5))
+                local iconSz = min(fontSize + 8, max(14, floor(CONTENT_BASE * 0.72 + 0.5)))
+                local textH = classText:GetStringHeight() or fontSize
+                return max(8 + iconSz + 2 + textH + 4, barH, 60)
+            end
+            return max(content:GetWidth() or 120, 40)
+        end
+
+        function inst:Destroy()
+            self._dead = true
+            content:Hide()
+        end
+
+        return inst
+    end
+
+    return
+end
 
 local ADDON_NAME, ns = ...
 local L = ns.L

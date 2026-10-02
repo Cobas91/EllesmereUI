@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIActionBars.lua  Custom Action Bars
 --  Own secure action bar frames AND buttons (EABButton/ActionBarButtonTemplate),
@@ -1083,8 +1084,8 @@ do
     ns.QuietBroadcasters = function()
         local abef = ActionBarButtonEventsFrame
         if abef then
-            for _, ev in ipairs(_abefQuiet) do abef:UnregisterEvent(ev) end
-            for _, ev in ipairs(_abefEvents) do abef:UnregisterEvent(ev) end
+            for _, ev in ipairs(_abefQuiet) do EUI_SafeUnregisterEvent(abef, ev) end
+            for _, ev in ipairs(_abefEvents) do EUI_SafeUnregisterEvent(abef, ev) end
         end
         local aaef = ActionBarActionEventsFrame
         if aaef then aaef:UnregisterAllEvents() end
@@ -1125,12 +1126,12 @@ do
         if want == "full" then
             if ActionBarButtonEventsFrame then
                 for _, ev in ipairs(_abefEvents) do
-                    ActionBarButtonEventsFrame:RegisterEvent(ev)
+                    EUI_SafeRegisterEvent(ActionBarButtonEventsFrame, ev)
                 end
             end
             if ActionBarActionEventsFrame then
                 for _, ev in ipairs(_aaefEvents) do
-                    ActionBarActionEventsFrame:RegisterUnitEvent(ev, "player")
+                    EUI_SafeRegisterUnitEvent(ActionBarActionEventsFrame, ev, "player")
                 end
             end
         end
@@ -1156,11 +1157,11 @@ do
     -- SetupBlizzardMovableFrame (a reliable trigger for delve entry).
     ns.RefreshBroadcaster = RefreshBroadcasterNeeds
     local barFrame = ns.TakeShell()
-    barFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
-    barFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
-    barFrame:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR")
-    barFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
-    barFrame:RegisterEvent("UPDATE_EXTRA_ACTIONBAR")
+    EUI_SafeRegisterEvent(barFrame, "UNIT_ENTERED_VEHICLE")
+    EUI_SafeRegisterEvent(barFrame, "UNIT_EXITED_VEHICLE")
+    EUI_SafeRegisterEvent(barFrame, "UPDATE_VEHICLE_ACTIONBAR")
+    EUI_SafeRegisterEvent(barFrame, "UPDATE_OVERRIDE_ACTIONBAR")
+    EUI_SafeRegisterEvent(barFrame, "UPDATE_EXTRA_ACTIONBAR")
     barFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     barFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
     barFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
@@ -2062,7 +2063,7 @@ local BUTTON_EVENT_LISTS = {
 
 local function ReRegisterButtonEvents(btn, listKey)
     for _, event in ipairs(BUTTON_EVENT_LISTS[listKey]) do
-        btn:RegisterEvent(event)
+        EUI_SafeRegisterEvent(btn, event)
     end
     if listKey == "pet" then
         btn:RegisterUnitEvent("UNIT_PET", "player")
@@ -2395,9 +2396,10 @@ function EAB_VTABLE.BuildPagingConditions(barKey, pagingConfig, defaultPage)
             end
         end
     end
-    -- WoW Forever: every class pages bar 1 by its stance/form offset (6 + offset), so
-    -- the implicit fallback covers every offset after any explicit per-form pick.
-    if barKey == "MainBar" and not noForm and EllesmereUI.IS_FOREVER then
+    -- WoW Forever and Classic Era: every class pages bar 1 by its stance/form offset
+    -- (6 + offset), so the implicit fallback covers every offset after any explicit
+    -- per-form pick.
+    if barKey == "MainBar" and not noForm and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         parts[#parts + 1] = "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9; [bonusbar:4] 10"
     end
     -- Manual pages come before the skyriding clause: the engine only consults
@@ -2461,9 +2463,9 @@ local function GetClassPagingConditions()
 
     -- Class-specific form paging (page 1 only, per the ordering above)
     if not noForm then
-        if EllesmereUI.IS_FOREVER then
-            -- WoW Forever pages bar 1 natively by the stance/form offset for EVERY
-            -- class (vanilla warrior stances, druid forms, rogue stealth): page 6 + offset.
+        if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
+            -- WoW Forever and Classic Era page bar 1 natively by the stance/form offset for
+            -- EVERY class (vanilla warrior stances, druid forms, rogue stealth): page 6 + offset.
             -- Mirror it exactly so ACTIONBUTTONn and the icon agree in every stance.
             conditions = conditions .. "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9; [bonusbar:4] 10; "
         elseif class == "DRUID" then
@@ -2581,8 +2583,8 @@ local function SetupPagingFrame()
     -- Update page text and handle combat visibility / vehicle state
     f:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
     f:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
-    f:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
-    f:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR")
+    EUI_SafeRegisterEvent(f, "UPDATE_OVERRIDE_ACTIONBAR")
+    EUI_SafeRegisterEvent(f, "UPDATE_VEHICLE_ACTIONBAR")
     f:RegisterEvent("PLAYER_REGEN_DISABLED")
     f:RegisterEvent("PLAYER_REGEN_ENABLED")
     f:SetScript("OnEvent", function(_, event)
@@ -3788,7 +3790,7 @@ ns.ApplyBarDormancy = function(key, dormant)
             if not fd.evGated then
                 fd.evGated = true
                 for _, ev in ipairs(list) do
-                    btn:UnregisterEvent(ev)
+                    EUI_SafeUnregisterEvent(btn, ev)
                 end
             end
         end
@@ -4215,7 +4217,7 @@ do
         -- Player-filtered: silent at idle.
         dispatcher:RegisterUnitEvent("UNIT_SPELLCAST_STOP", "player")
         dispatcher:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
-        dispatcher:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
+        EUI_SafeRegisterUnitEvent(dispatcher, "UNIT_SPELLCAST_EMPOWER_STOP", "player")
         -- Press-time hot-lane triggers (handler's press branch): earliest
         -- edges observing a QUEUED press's cooldown-record update. Quiet
         -- outside active casting; the branch is a nil-check otherwise.
@@ -4230,10 +4232,10 @@ do
         dispatcher:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
         dispatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
         dispatcher:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
-        dispatcher:RegisterEvent("SPELL_UPDATE_CHARGES")
-        dispatcher:RegisterEvent("SPELL_UPDATE_ICON")
-        dispatcher:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR")
-        dispatcher:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
+        EUI_SafeRegisterEvent(dispatcher, "SPELL_UPDATE_CHARGES")
+        EUI_SafeRegisterEvent(dispatcher, "SPELL_UPDATE_ICON")
+        EUI_SafeRegisterEvent(dispatcher, "UPDATE_VEHICLE_ACTIONBAR")
+        EUI_SafeRegisterEvent(dispatcher, "UPDATE_OVERRIDE_ACTIONBAR")
         -- Owning edges for Blizzard paging (page arrows, stealth/form bonus
         -- bars): these re-map action attributes, so must land in the
         -- infrequent branch as content edges -- nothing else heals the filled lists.
@@ -4250,9 +4252,9 @@ do
         -- branch, retiring button lists via ns._cdFilledDirty; the curated-set memo
         -- retires separately (ns._cdCuratedDirty) -- these three plus SPELLS_CHANGED
         -- and PEW are the ONLY edges that can change what the viewer curates.
-        dispatcher:RegisterEvent("COOLDOWN_VIEWER_DATA_LOADED")
-        dispatcher:RegisterEvent("COOLDOWN_VIEWER_TABLE_HOTFIXED")
-        dispatcher:RegisterEvent("COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED")
+        EUI_SafeRegisterEvent(dispatcher, "COOLDOWN_VIEWER_DATA_LOADED")
+        EUI_SafeRegisterEvent(dispatcher, "COOLDOWN_VIEWER_TABLE_HOTFIXED")
+        EUI_SafeRegisterEvent(dispatcher, "COOLDOWN_VIEWER_SPELL_OVERRIDE_UPDATED")
         -- Per-button content refresh for a changed slot. Shared by the
         -- dispatcher's SLOT_CHANGED full walk (arg1 == 0) and the
         -- slot->buttons fast path; on ns because this chunk is at the 200-local cap.
@@ -6364,12 +6366,12 @@ function ns.AB_CapsEvSync()
                 if not ns.AB_CapsFaction(cs) then known = false end
             end
             if known and event == "PLAYER_ENTERING_WORLD" then
-                self:UnregisterEvent(event)
+                EUI_SafeUnregisterEvent(self, event)
             end
         end)
         ns._abCapsEv = ev
     end
-    ev:RegisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
+    EUI_SafeRegisterEvent(ev, "NEUTRAL_FACTION_SELECT_RESULT")
     if waiting then
         ev:RegisterEvent("PLAYER_ENTERING_WORLD")
     else
@@ -6499,7 +6501,7 @@ function ns.AB_ExtraCapsPad()
         end)
         ns._abCapStyleEv = ev
     end
-    ev:RegisterEvent("INPUT_DEVICE_INTERFACE_TRANSITION")
+    EUI_SafeRegisterEvent(ev, "INPUT_DEVICE_INTERFACE_TRANSITION")
 end
 
 -- Retail's bag bar keeps its full length while collapsed (the expand arrow
@@ -9526,10 +9528,10 @@ function EAB:ApplyRangeColoring()
         -- No offset snapshot needed: GetButtonActionSlot reads the bar
         -- frame's actionpage attribute dynamically for MainBar.
         _range.eventFrame = ns.TakeShell()
-        _range.eventFrame:RegisterEvent("ACTION_RANGE_CHECK_UPDATE")
+        EUI_SafeRegisterEvent(_range.eventFrame, "ACTION_RANGE_CHECK_UPDATE")
         _range.eventFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
         _range.eventFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
-        _range.eventFrame:RegisterEvent("ACTION_USABLE_CHANGED")
+        EUI_SafeRegisterEvent(_range.eventFrame, "ACTION_USABLE_CHANGED")
         _range.eventFrame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
         _range.eventFrame:SetScript("OnEvent", function(_, event, slot, inRange, checksRange)
             if event == "ACTION_RANGE_CHECK_UPDATE" then
@@ -12255,12 +12257,12 @@ function EAB:HookProcGlow()
     end
 
     local glowFrame = ns.TakeShell()
-    glowFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
-    glowFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
+    EUI_SafeRegisterEvent(glowFrame, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+    EUI_SafeRegisterEvent(glowFrame, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
     glowFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
     glowFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
     glowFrame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
-    glowFrame:RegisterEvent("SPELL_UPDATE_ICON")
+    EUI_SafeRegisterEvent(glowFrame, "SPELL_UPDATE_ICON")
     -- Deferred full re-scan, coalesced: mouseover-conditional macros
     -- re-resolve on every mouseover flip and fire ACTIONBAR_SLOT_CHANGED
     -- storms (dozens/sec sweeping nameplates). One pending scan covers it.
@@ -13485,8 +13487,8 @@ do
     if btn then
         btn:SetParent(UIParent)
         local vehVis = ns.TakeShell()
-        vehVis:RegisterEvent("UNIT_ENTERED_VEHICLE")
-        vehVis:RegisterEvent("UNIT_EXITED_VEHICLE")
+        EUI_SafeRegisterEvent(vehVis, "UNIT_ENTERED_VEHICLE")
+        EUI_SafeRegisterEvent(vehVis, "UNIT_EXITED_VEHICLE")
         vehVis:RegisterEvent("PLAYER_ENTERING_WORLD")
         vehVis:RegisterEvent("PLAYER_REGEN_ENABLED")
         vehVis:SetScript("OnEvent", function(self, event, unit)
@@ -13611,7 +13613,7 @@ do
         EAB:ReclaimMicroMenu()
     end
     local petBattleReclaimFrame = CreateFrame("Frame")
-    petBattleReclaimFrame:RegisterEvent("PET_BATTLE_CLOSE")
+    EUI_SafeRegisterEvent(petBattleReclaimFrame, "PET_BATTLE_CLOSE")
     petBattleReclaimFrame:SetScript("OnEvent", TryReclaimAfterPetBattle)
 end
 
@@ -13730,8 +13732,8 @@ do
     end
 
     local vehHighlightFrame = ns.TakeShell()
-    vehHighlightFrame:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR")
-    vehHighlightFrame:RegisterEvent("UPDATE_OVERRIDE_ACTIONBAR")
+    EUI_SafeRegisterEvent(vehHighlightFrame, "UPDATE_VEHICLE_ACTIONBAR")
+    EUI_SafeRegisterEvent(vehHighlightFrame, "UPDATE_OVERRIDE_ACTIONBAR")
     vehHighlightFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
     vehHighlightFrame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
     vehHighlightFrame:SetScript("OnEvent", QueueVehicleHighlightFix)
@@ -13746,7 +13748,7 @@ end
 local _housingEventFrame = CreateFrame("Frame")
 local IsHouseEditorActive = C_HouseEditor and C_HouseEditor.IsHouseEditorActive
 if IsHouseEditorActive then
-    _housingEventFrame:RegisterEvent("HOUSE_EDITOR_MODE_CHANGED")
+    EUI_SafeRegisterEvent(_housingEventFrame, "HOUSE_EDITOR_MODE_CHANGED")
     _housingEventFrame:SetScript("OnEvent", function()
         if IsHouseEditorActive() then
             -- House editor opened: clear ALL override bindings so housing hotkeys work
@@ -14805,6 +14807,9 @@ function EAB:OnInitialize()
     end
 
     SLASH_EABQUICKKEYBIND1 = "/kb"
+    -- Unambiguous alias: other UI suites (ElvUI) register /kb for their own
+    -- bind mode, and whichever loads last owns it.
+    SLASH_EABQUICKKEYBIND2 = "/euikb"
     SlashCmdList["EABQUICKKEYBIND"] = function(msg)
         if InCombatLockdown() then return end
         if not C_AddOns.IsAddOnLoaded("Blizzard_QuickKeybind") then
@@ -14975,6 +14980,12 @@ end
 -------------------------------------------------------------------------------
 local function SyncEditModeIconCounts()
     if InCombatLockdown() then return end
+    -- Classic Era has no Edit Mode at all: C_EditMode is a neutral stub (its
+    -- GetLayouts/SaveLayouts keys resolve to callable-but-empty functions,
+    -- which would otherwise pass the plain truthiness check below several
+    -- calls before the real no-op happens). Early-return explicitly instead
+    -- of relying on that to resolve safely.
+    if EllesmereUI.IS_CLASSIC_ERA then return end
     if not C_EditMode or not C_EditMode.GetLayouts or not C_EditMode.SaveLayouts then return end
 
     -- Never write while Blizzard's Edit Mode is open. The manager keeps its OWN copy of
@@ -15680,7 +15691,7 @@ function EAB:FinishSetup()
         end
     end
 
-    self:RegisterEvent("CURSOR_CHANGED", function()
+    EUI_SafeRegisterEvent(self, "CURSOR_CHANGED", function()
         local cursorType = GetCursorInfo()
         if cursorType then
             if DRAG_TYPES[cursorType] then
@@ -15820,7 +15831,7 @@ function EAB:FinishSetup()
     -- regions after our hooks ran. Deferred re-apply ensures our cosmetic
     -- overrides (squaring, borders, slot art hiding) are re-enforced after
     -- Blizzard finishes processing the spec change.
-    self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", function()
+    EUI_SafeRegisterEvent(self, "PLAYER_SPECIALIZATION_CHANGED", function()
         C_Timer.After(0.5, function()
             if not InCombatLockdown() then
                 ApplyAll()
@@ -15834,7 +15845,7 @@ function EAB:FinishSetup()
     end)
 
     -- Visibility option events: mounted, target, group changes
-    self:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED", function()
+    EUI_SafeRegisterEvent(self, "PLAYER_MOUNT_DISPLAY_CHANGED", function()
         self:UpdateHousingVisibility()
     end)
     -- Resting: IsResting() has no dedicated poll, so without this the Resting axis only
@@ -15850,10 +15861,10 @@ function EAB:FinishSetup()
     end
     -- Vehicle edges for the In Vehicle axis (same reasoning as Resting; the
     -- sync is gated + coalesced, so the rare fire costs a flag check).
-    self:RegisterEvent("UNIT_ENTERED_VEHICLE", function()
+    EUI_SafeRegisterEvent(self, "UNIT_ENTERED_VEHICLE", function()
         self:UpdateHousingVisibility()
     end)
-    self:RegisterEvent("UNIT_EXITED_VEHICLE", function()
+    EUI_SafeRegisterEvent(self, "UNIT_EXITED_VEHICLE", function()
         self:UpdateHousingVisibility()
     end)
     self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", function()
@@ -15863,11 +15874,11 @@ function EAB:FinishSetup()
     -- capability edge plus the airborne edge (probed at load in
     -- EllesmereUI_Visibility.lua; the secure bars need neither -- their
     -- state driver re-evaluates [advflyable,flying] natively).
-    self:RegisterEvent("PLAYER_CAN_GLIDE_CHANGED", function()
+    EUI_SafeRegisterEvent(self, "PLAYER_CAN_GLIDE_CHANGED", function()
         self:UpdateHousingVisibility()
     end)
     if EllesmereUI._hasGlidingEvent then
-        self:RegisterEvent("PLAYER_IS_GLIDING_CHANGED", function()
+        EUI_SafeRegisterEvent(self, "PLAYER_IS_GLIDING_CHANGED", function()
             self:UpdateHousingVisibility()
         end)
     end
@@ -15924,13 +15935,13 @@ function EAB:FinishSetup()
             self:UpdateHousingVisibility()
         end)
     end)
-    self:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED", function()
+    EUI_SafeRegisterEvent(self, "PLAYER_SOFT_INTERACT_CHANGED", function()
         ImmediateSoftTargetCheck()
         self:UpdateHousingVisibility()
     end)
     local function RegisterIfValid(event, fn)
         if C_EventUtils and C_EventUtils.IsEventValid and C_EventUtils.IsEventValid(event) then
-            self:RegisterEvent(event, fn)
+            EUI_SafeRegisterEvent(self, event, fn)
         end
     end
     RegisterIfValid("PLAYER_SOFT_ENEMY_CHANGED", function()
@@ -16334,7 +16345,7 @@ function EAB:FinishSetup()
     local _petEventFrame = ns.TakeShell()
     _petEventFrame:RegisterEvent("PET_BAR_UPDATE")
     _petEventFrame:RegisterEvent("PET_BAR_UPDATE_COOLDOWN")
-    _petEventFrame:RegisterEvent("PET_BAR_UPDATE_USABLE")
+    EUI_SafeRegisterEvent(_petEventFrame, "PET_BAR_UPDATE_USABLE")
     _petEventFrame:RegisterEvent("PET_UI_UPDATE")
     _petEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     _petEventFrame:RegisterUnitEvent("UNIT_PET", "player")
@@ -16401,7 +16412,7 @@ function EAB:FinishSetup()
     -- Talent changes can cause Blizzard to re-show hidden bars.
     -- Re-run the hider and re-unregister events on the affected frames.
     -- The OnShow hooks below also catch this, but this is a safety net.
-    self:RegisterEvent("PLAYER_TALENT_UPDATE", function()
+    EUI_SafeRegisterEvent(self, "PLAYER_TALENT_UPDATE", function()
         if InCombatLockdown() then return end
         for _, entry in ipairs(STOCK_BAR_DISPOSAL) do
             local bar = _G[entry.name]
@@ -16772,7 +16783,7 @@ end
 
 -- WoW Forever: raw XP under 10,000 is not abbreviated (EllesmereUI_NumberFormat.lua).
 -- On ns, not a local: this chunk is at its 200-local cap.
-ns.AbbreviateLargeNumbers = (EllesmereUI.IS_FOREVER and EllesmereUI.ForeverAbbreviateLargeNumbers) or AbbreviateLargeNumbers
+ns.AbbreviateLargeNumbers = ((EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and EllesmereUI.ForeverAbbreviateLargeNumbers) or AbbreviateLargeNumbers
 local function UpdateXPBar()
     local frame, s = EAB_VTABLE.ExtraBars.BeginManagedDataBarUpdate("XPBar")
     if not frame then return end
@@ -17043,8 +17054,8 @@ local function CreateRepBar()
     evFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     evFrame:RegisterEvent("QUEST_FINISHED")
     if C_MajorFactions then
-        evFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
-        evFrame:RegisterEvent("MAJOR_FACTION_UNLOCKED")
+        EUI_SafeRegisterEvent(evFrame, "MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
+        EUI_SafeRegisterEvent(evFrame, "MAJOR_FACTION_UNLOCKED")
     end
     evFrame:SetScript("OnEvent", UpdateRepBar)
 
@@ -17063,7 +17074,13 @@ end
 -- Block-scoped + ns export: the file-scope local budget is nearly at the
 -- Lua 5.1 200 cap. WoW Forever has no housing: there the block never runs,
 -- so no bar is built, nothing registers and ns._CreateFavorBar stays nil.
-if not EllesmereUI.IS_FOREVER then
+-- Classic Era has no player-housing concept at all either (C_Housing/
+-- C_HouseEditor are Midnight 12.0-only and didn't even exist when this
+-- suite's retail version shipped) -- excluded the same way rather than
+-- trusting the neutral stub, since a truthy-but-inert stub FUNCTION on
+-- C_Housing.GetPlayerOwnedHouses would otherwise pass the "does housing
+-- exist" check below and let a user un-hide a bar that can never populate.
+if not EllesmereUI.IS_FOREVER and not EllesmereUI.IS_CLASSIC_ERA then
 local favorState  -- { level, displayLevel, favor, needed } from the last payload
 local favorEv, favorArmed
 local ArmFavorEvents  -- forward: mutual recursion with UpdateFavorBar
@@ -17161,8 +17178,8 @@ ArmFavorEvents = function()
             favorEv:SetScript("OnEvent", OnFavorEvent)
         end
         favorEv:RegisterEvent("PLAYER_ENTERING_WORLD")
-        favorEv:RegisterEvent("PLAYER_HOUSE_LIST_UPDATED")
-        favorEv:RegisterEvent("HOUSE_LEVEL_FAVOR_UPDATED")
+        EUI_SafeRegisterEvent(favorEv, "PLAYER_HOUSE_LIST_UPDATED")
+        EUI_SafeRegisterEvent(favorEv, "HOUSE_LEVEL_FAVOR_UPDATED")
         -- Kick the async chain now; if inside blocked content the next
         -- world-enter re-kicks instead.
         if not FavorBlocked() then
@@ -17204,7 +17221,7 @@ local function CreateFavorBar()
 end
 
 ns._CreateFavorBar = CreateFavorBar
-end -- not IS_FOREVER
+end -- not IS_FOREVER and not IS_CLASSIC_ERA
 
 -------------------------------------------------------------------------------
 --  Register Data Bars with Unlock Mode: same pattern as action bars and
@@ -18156,10 +18173,10 @@ local function SetupExtraBarHolder(barKey, frameName, barInfo)
 
         -- Safety net: on LFG_UPDATE, re-parent and let Blizzard show the eye
         local queueWatcher = ns.TakeShell()
-        queueWatcher:RegisterEvent("LFG_UPDATE")
-        queueWatcher:RegisterEvent("LFG_QUEUE_STATUS_UPDATE")
-        queueWatcher:RegisterEvent("LFG_ROLE_CHECK_UPDATE")
-        queueWatcher:RegisterEvent("LFG_PROPOSAL_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_QUEUE_STATUS_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_ROLE_CHECK_UPDATE")
+        EUI_SafeRegisterEvent(queueWatcher, "LFG_PROPOSAL_UPDATE")
         queueWatcher:SetScript("OnEvent", function()
             EnsureQueueParent()
             RepositionQueue()
@@ -19022,7 +19039,7 @@ end)
             local btn = _G["EABButton" .. slot]
             if btn and btn.icon then
                 local t = btn.icon:GetTexture()
-                if not issecretvalue(t) and t == iconID then hook(btn.icon) end
+                if not (issecretvalue and issecretvalue(t)) and t == iconID then hook(btn.icon) end
             end
         end
     end

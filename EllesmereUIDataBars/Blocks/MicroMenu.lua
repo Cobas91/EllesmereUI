@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- Blocks\MicroMenu.lua
 -- Micro menu block factory and Blizzard micro menu hider.
 
@@ -89,7 +90,9 @@ end
 -- button -- addon-Lua opening taints the frame, and SetCooldown then rejects secrets inside Blizzard_SpellBookItem.
 local MM_MICRO_BUTTON_NAMES = {
     guild   = "GuildMicroButton",
-    social  = "QuickJoinToastButton",
+    -- Classic Era has no QuickJoinToastButton; its friends/guild window opens
+    -- from SocialsMicroButton.
+    social  = { "QuickJoinToastButton", "SocialsMicroButton" },
     char    = "CharacterMicroButton",
     spell   = { "PlayerSpellsMicroButton", "SpellbookMicroButton" },
     journal = { "EJMicroButton" },
@@ -105,7 +108,8 @@ local MM_MICRO_BUTTON_NAMES = {
 -- WoW Forever splits the spellbook and the talents into two micro buttons. Its
 -- PlayerSpellsMicroButton still exists but opens the frame on whichever tab was last
 -- shown, so there the spell entry clicks the spellbook's own button and a Talents entry follows it.
-if EllesmereUI.IS_FOREVER then
+-- Classic Era has the same two separate buttons (and no PlayerSpellsMicroButton at all).
+if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
     MM_MICRO_BUTTON_NAMES.spell  = "SpellbookMicroButton"
     MM_MICRO_BUTTON_NAMES.talent = "TalentMicroButton"
     for i, def in ipairs(mmButtonDefs) do
@@ -265,7 +269,27 @@ end
 -- can return a secret value under tainted execution (arithmetic on it errors), so drop the line instead.
 local CS_DIM = "|cffaaaaaa"
 
+-- Classic Era has no specializations (C_SpecializationInfo stubs to
+-- neutral no-ops), so the primary stat is read straight off the CLASS
+-- instead -- every class has exactly one obvious primary stat there, no
+-- per-spec ambiguity to resolve.
+local CLASS_PRIMARY_STAT = {
+    WARRIOR = 1, PALADIN = 1, DEATHKNIGHT = 1,
+    HUNTER = 2, ROGUE = 2, DRUID = 2,
+    MAGE = 4, PRIEST = 4, WARLOCK = 4,
+    -- Shaman has no single obvious pick (melee enhance = Agility, caster = Intellect);
+    -- left unset so the row simply does not show rather than guess wrong.
+}
+
 local function MMPrimaryStat()
+    if EllesmereUI.IS_CLASSIC_ERA then
+        local _, classFile = UnitClass("player")
+        local statIdx = classFile and CLASS_PRIMARY_STAT[classFile]
+        if statIdx == 1 then return SPELL_STAT1_NAME or "Strength",  1 end
+        if statIdx == 2 then return SPELL_STAT2_NAME or "Agility",   2 end
+        if statIdx == 4 then return SPELL_STAT4_NAME or "Intellect", 4 end
+        return nil
+    end
     local specIndex = C_SpecializationInfo.GetSpecialization()
     if not specIndex or specIndex <= 0 then return nil end
     local _, _, _, _, _, statID = C_SpecializationInfo.GetSpecializationInfo(specIndex)
@@ -309,8 +333,10 @@ local function MMAddCharStats()
         end
     end
 
-    -- WoW Forever has no Mastery or Versatility.
-    if EllesmereUI.IS_FOREVER then
+    -- WoW Forever and Classic Era both have no Mastery or Versatility
+    -- (Classic Era's only secondary stats are crit and haste; there was
+    -- never a third/fourth secondary stat to show).
+    if EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA then
         local crit, critCR = EllesmereUI.ForeverCritChance()
         local haste, hasteCR = EllesmereUI.ForeverHaste()
         pctRating(STAT_CRITICAL_STRIKE or "Critical Strike", crit,  GetCombatRating(critCR))
@@ -603,8 +629,10 @@ ns.BlockFactories.micromenu = function(blockCfg, slot, content, barCtx)
             ns.Tip_AddDouble('|cFFFFFFFF' .. L["ACH_POINTS"] .. '|r', '|cFF' .. hexAccent .. pts .. '|r', 1, 1, 1, r, g, b)
         end
 
-        -- Delve Journey and Companion Level rows: WoW Forever has no Delves.
-        if name == 'journal' and not EllesmereUI.IS_FOREVER then
+        -- Delve Journey and Companion Level rows: WoW Forever and Classic Era
+        -- both have no Delves (C_DelvesUI/C_MajorFactions have no Classic
+        -- equivalent at all -- no Renown, no Delver's Companion).
+        if name == 'journal' and not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local hexAccent = format('%02x%02x%02x', floor(r * 255), floor(g * 255), floor(b * 255))
             ns.Tip_AddLine(" ")
             local delveRank, delveMax = 0, '?'
@@ -721,6 +749,12 @@ ns.BlockFactories.micromenu = function(blockCfg, slot, content, barCtx)
         end
         if (key == 'housing' or key == 'talent') and not microRef then
             -- Skip housing and talents if the Blizzard micro button does not exist.
+            return nil
+        end
+        -- Classic Era has no Achievements, Group Finder, Adventure Journal,
+        -- Collections or Shop micro button: a mapped button the client lacks
+        -- has nothing to click through to, so it is skipped the same way.
+        if EllesmereUI.IS_CLASSIC_ERA and microBtnName and not microRef then
             return nil
         end
         local frame

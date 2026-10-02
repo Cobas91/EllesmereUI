@@ -33,6 +33,18 @@ if iface >= 16000 and iface < 20000 then
 end
 if iface >= 120100 then return end
 
+-- WoW Classic Era (this ported build's actual target): 1.13.x through the
+-- current 1.15.x client report 11300-11599. Flagged before any other file
+-- runs so EllesmereUI_ClassicCompat.lua (loads next in the TOC, right ahead
+-- of EllesmereUI_Lite.lua) can install its API safety net, and so the rest
+-- of the suite can treat Classic Era the same way it already treats WoW
+-- Forever for anything spec/talent-tree related (no specializations exist
+-- on either client).
+if iface >= 11300 and iface < 16000 then
+    EUI_CLIENT_CLASSIC_ERA = true
+    return
+end
+
 EUI_CLIENT_BLOCKED = true
 
 local ev = CreateFrame("Frame")

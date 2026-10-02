@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_Presets.lua
 --
@@ -247,7 +248,7 @@ do
     --- can hold data under it: the CDM spell store). token nil = the player.
     --- nil on retail and for a class Forever does not have.
     function EllesmereUI.ForeverClassSpec(token, pred, arg, withLegacy)
-        if not EllesmereUI.IS_FOREVER then return nil end
+        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return nil end
         token = token or PlayerClass()
         local ids = token and FV().specs[token]
         if not ids then return nil end
@@ -261,7 +262,7 @@ do
     --- (data held under it), else the player's class retail specs in class
     --- order, else the class's first retail spec.
     function EllesmereUI.SpecFor(rawID, pred, arg)
-        if not EllesmereUI.IS_FOREVER or not rawID or rawID == 0 then return rawID end
+        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) or not rawID or rawID == 0 then return rawID end
         local t = FV()
         local owner = t.class[rawID]
         if owner and EllesmereUI.FOREVER_CLASS_SPEC[owner] ~= rawID then return rawID end
@@ -274,7 +275,7 @@ do
     --- Forever = any retail spec of the player's class, or its Forever spec ID.
     function EllesmereUI.IsPlayerSpec(specID)
         if not specID then return false end
-        if EllesmereUI.IS_FOREVER then return FV().class[specID] == PlayerClass() end
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return FV().class[specID] == PlayerClass() end
         local live = EllesmereUI._specID
         if not live or live == 0 then
             EllesmereUI._RefreshSpecID()
@@ -306,7 +307,7 @@ do
     --- every retail spec of its class (a new table; the input is untouched).
     --- Retail: the input.
     function EllesmereUI.ForeverExpandSpecSet(set)
-        if not EllesmereUI.IS_FOREVER or not set then return set end
+        if not (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) or not set then return set end
         local t, out = FV(), {}
         for id, v in pairs(set) do
             local owner = t.class[id]
@@ -474,7 +475,7 @@ do
             popup._uncheckAll    = MakeLink("Uncheck All")
             -- WoW Forever specs carry no role: the role links are hidden and
             -- Uncheck All sits right after Check All.
-            if EllesmereUI.IS_FOREVER then
+            if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
                 popup._checkTanks:Hide(); popup._checkTanks._div:Hide()
                 popup._checkHealers:Hide(); popup._checkHealers._div:Hide()
                 popup._checkDPS:Hide(); popup._checkDPS._div:Hide()
@@ -786,7 +787,7 @@ do
         -- spec picker). Normal callers keep the subtitle under the title. The
         -- warning also renders 2px larger for emphasis.
         specPopup._subtitle:ClearAllPoints()
-        PP.Size(specPopup, specPopup._POPUP_W, EllesmereUI.IS_FOREVER and FOREVER_POPUP_H or specPopup._POPUP_H)
+        PP.Size(specPopup, specPopup._POPUP_W, (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and FOREVER_POPUP_H or specPopup._POPUP_H)
         local subFont = specPopup._subtitle:GetFont()
         if opts.subtitleAtBottom then
             specPopup._subtitle:SetFont(subFont, 16, "")
@@ -910,7 +911,7 @@ do
             local col = specPopup._columns[colIdx]
             for _, row in ipairs(col._rows) do row:Hide() end
 
-            local list = EllesmereUI.IS_FOREVER and NO_CLASSES or COL_LISTS[colIdx]
+            local list = (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and NO_CLASSES or COL_LISTS[colIdx]
             local rowIdx = 0
             local yOff = 0
             local isFirstClass = true
@@ -1064,7 +1065,7 @@ do
         -- preset the owner. Ticking assigns every spec of the class no other
         -- preset holds; unticking clears them. Specs of classes Forever does
         -- not have stay in the assignments untouched.
-        if EllesmereUI.IS_FOREVER then
+        if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
             local rows = specPopup._fvRows or {}
             specPopup._fvRows = rows
             local function LockedOn(id)

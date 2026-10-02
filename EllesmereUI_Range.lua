@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_Range.lua
 --  Shared range-check engine for the suite's range consumers:
@@ -101,7 +102,7 @@ local function SpecAttackCutoff(holyPaladinMelee)
     -- check in Range_GetAttackCutoff before this cached value is read.
     -- Paladin, Hunter (min-range shots are excluded from the ladder), Warrior
     -- and Rogue stay at 5.
-    if EllesmereUI.IS_FOREVER == true then
+    if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
         if classFile == "DRUID" or classFile == "PRIEST" or classFile == "MAGE" or classFile == "WARLOCK"
             or classFile == "SHAMAN" then
             EnsureLadder()
@@ -155,7 +156,7 @@ function EllesmereUI.Range_GetAttackCutoff(customCutoff, holyPaladinMelee)
     if classFile == "DRUID" then
         -- WoW Forever orders the stance bar the vanilla way (Aquatic Form can sit
         -- between Bear and Cat), so it checks the form ID: Cat 1, Bear 5, Dire Bear 8.
-        if EllesmereUI.IS_FOREVER == true then
+        if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
             local fid = GetShapeshiftFormID()
             if fid == 1 or fid == 5 or fid == 8 then return 5 end
         elseif DRUID_MELEE_FORMS[GetShapeshiftForm()] then
@@ -497,8 +498,8 @@ function EllesmereUI.Range_SetActive(key, on)
             end)
         end
         RG.evt:RegisterEvent("SPELLS_CHANGED")
-        RG.evt:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-        RG.evt:RegisterEvent("TRAIT_CONFIG_UPDATED")
+        EUI_SafeRegisterEvent(RG.evt, "PLAYER_SPECIALIZATION_CHANGED")
+        EUI_SafeRegisterEvent(RG.evt, "TRAIT_CONFIG_UPDATED")
         RG.evt:RegisterEvent("PLAYER_ENTERING_WORLD")
         -- Events were unregistered until now; anything may have changed.
         RG.dirty = true

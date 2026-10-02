@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EUI_RaidFrames_ForeverMissingBuffs.lua  (WoW Forever only)
 --
@@ -39,7 +40,7 @@ if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_C
 -------------------------------------------------------------------------------
 local _, ns = ...
 local EllesmereUI = _G.EllesmereUI
-if not (EllesmereUI and EllesmereUI.IS_FOREVER) then return end
+if not (EllesmereUI and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA)) then return end
 
 -- One entry per buff, shown in this order. class: the one class that casts
 -- it; setting: its own switch (the cog's checkbox list; nil = on); names:
@@ -563,7 +564,7 @@ local function SetEvents(on)
         world:RegisterEvent("GROUP_ROSTER_UPDATE")
         world:RegisterEvent("PLAYER_ENTERING_WORLD")
         -- Every aura restriction edge (combat, encounters, instances).
-        world:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED")
+        EUI_SafeRegisterEvent(world, "ADDON_RESTRICTION_STATE_CHANGED")
         -- What the player can cast (only a priest, druid or paladin gets here).
         world:RegisterEvent("SPELLS_CHANGED")
     else

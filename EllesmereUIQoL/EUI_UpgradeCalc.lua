@@ -1,5 +1,6 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
-if EllesmereUI and EllesmereUI.IS_FOREVER then return end -- no item upgrade system on WoW Forever: no frame, no DB, no equipment listener; the QoL Upgrader tab is not registered there (every reader of EUIUpgCalc / EUIUpgCalcFrame nil-guards)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
+if EllesmereUI and (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then return end -- no item upgrade system on WoW Forever OR Classic Era (C_ItemUpgrade / crest currencies do not exist pre-Dragonflight): no frame, no DB, no equipment listener; the QoL Upgrader tab is not registered there (every reader of EUIUpgCalc / EUIUpgCalcFrame nil-guards)
 -------------------------------------------------------------------------------
 --  EUI_UpgradeCalc.lua  (part of EllesmereUIQoL)
 --  Gear upgrade planner: data tables, game logic, and calculator UI.
@@ -1854,9 +1855,9 @@ do
     local _upgraderOpen = false
 
     local evtFrame = CreateFrame("Frame")
-    evtFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
-    evtFrame:RegisterEvent("PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
-    evtFrame:RegisterEvent("ITEM_UPGRADE_MASTER_UPDATE")
+    EUI_SafeRegisterEvent(evtFrame, "PLAYER_INTERACTION_MANAGER_FRAME_SHOW")
+    EUI_SafeRegisterEvent(evtFrame, "PLAYER_INTERACTION_MANAGER_FRAME_HIDE")
+    EUI_SafeRegisterEvent(evtFrame, "ITEM_UPGRADE_MASTER_UPDATE")
     evtFrame:SetScript("OnEvent", function(_, event, interactionType)
         local opts = Calc.GetOptsDB and Calc.GetOptsDB()
         if not opts or not opts.openWithUpgrader then return end

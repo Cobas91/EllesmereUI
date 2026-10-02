@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIDamageMeters_SpellHistory.lua
 --  Standalone spell history tracker.  Two independent display modes:
@@ -1549,7 +1550,7 @@ end)
 local zoneFrame = CreateFrame("Frame")
 zoneFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 zoneFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-zoneFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+EUI_SafeRegisterEvent(zoneFrame, "PLAYER_SPECIALIZATION_CHANGED")
 zoneFrame:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_SPECIALIZATION_CHANGED" then _previewIcons = nil end
     if ns.ApplySpellHistory then ns.ApplySpellHistory() end

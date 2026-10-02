@@ -1,4 +1,5 @@
 ﻿if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_RaidFrames_BuffManager2.lua
 -- 12.1 Buff Manager v2: the spell -> filter -> indicator model.
 -- FILTERS are named spell sets: presets ship with the addon (rename/delete
@@ -99,7 +100,7 @@ ns.BM2_SpellClass = SPELL_CLASS
 -- that catalogue). A direct pick or user filter holding a rank alternate
 -- resolves to its family's primary, so it keeps matching every rank. nil on
 -- every other client.
-if EllesmereUI.IS_FOREVER == true then
+if (EllesmereUI.IS_FOREVER == true or EllesmereUI.IS_CLASSIC_ERA == true) then
     local ap = {}
     for id, alts in pairs(PRESET_ALTS) do
         for i = 1, #alts do ap[alts[i]] = id end
@@ -631,7 +632,7 @@ end
 -- render the shared bucket).
 function ns.BM2_SpecKey()
     -- WoW Forever: the same formula with the spec the class acts as.
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         local sid = ns.BM2_ForeverSpecID()
         return (sid and ns.BM_SpecKeyForSpecID and ns.BM_SpecKeyForSpecID(sid)) or "nonhealer"
     end
@@ -1008,11 +1009,11 @@ function ns.BM2_SpecIndicators(frameKind)
     local specIdx = GetSpecialization and GetSpecialization()
     local specID = specIdx and GetSpecializationInfo and GetSpecializationInfo(specIdx)
     -- WoW Forever: the spec the class acts as (no role group there).
-    if EllesmereUI.IS_FOREVER then specID = ns.BM2_ForeverSpecID() end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then specID = ns.BM2_ForeverSpecID() end
     local tracked = specID and ns.BM_SpecKeyForSpecID and ns.BM_SpecKeyForSpecID(specID) or nil
     -- WoW Forever: no role groups there, All Non Healers/Aug included -- an
     -- untracked class renders its own bucket and All Specs only.
-    if EllesmereUI.IS_FOREVER and not tracked then inds = nil end
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) and not tracked then inds = nil end
     if specID and not tracked then
         ownInds = ns.BM2_SpecInds("spec" .. specID)
     end

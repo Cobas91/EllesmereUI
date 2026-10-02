@@ -1,5 +1,7 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 if EllesmereUI and EllesmereUI.IS_FOREVER then return end -- WoW Forever: talent reminders are retail-only (its options page is not built there)
+if EllesmereUI and EllesmereUI.IS_CLASSIC_ERA then return end -- Classic Era: this whole feature is a modern-talent-tree (C_Traits/C_ClassTalents) + current-season Mythic+/raid zone picker; no Classic equivalent zone list or talent system exists, so the feature is disabled outright rather than firing on zones/talents that don't exist here.
 -------------------------------------------------------------------------------
 --  EllesmereUIABR_TalentReminders.lua
 --  Standalone talent reminder system. Zero dependency on ABR aura/buff logic.
@@ -389,9 +391,9 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
         eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
         eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
-        eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
-        eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
-        eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+        EUI_SafeRegisterEvent(eventFrame, "TRAIT_CONFIG_UPDATED")
+        EUI_SafeRegisterEvent(eventFrame, "PLAYER_TALENT_UPDATE")
+        EUI_SafeRegisterEvent(eventFrame, "PLAYER_SPECIALIZATION_CHANGED")
         eventFrame:RegisterEvent("SPELLS_CHANGED")
         eventFrame:RegisterEvent("PLAYER_DEAD")
         eventFrame:RegisterEvent("PLAYER_ALIVE")

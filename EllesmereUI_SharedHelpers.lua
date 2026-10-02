@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUI_SharedHelpers.lua
 --  Frame data store, third-party skin registry, Blizzard cast bar ownership
@@ -191,7 +192,7 @@ function EllesmereUI.RearmBlizzCastBars()
         if not bar.foreign and not bar.frame:IsEventRegistered("UNIT_SPELLCAST_START") then
             bar.owned = false
             for j = 1, #BLIZZ_CAST_EVENTS do
-                bar.frame:RegisterUnitEvent(BLIZZ_CAST_EVENTS[j], bar.unit)
+                EUI_SafeRegisterUnitEvent(bar.frame, BLIZZ_CAST_EVENTS[j], bar.unit)
             end
             bar.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
             if bar.unit == "pet" then bar.frame:RegisterEvent("UNIT_PET") end
@@ -391,7 +392,7 @@ function EllesmereUI.GetLevelDifficultyColor(level, attackable)
     end
     local mine = UnitEffectiveLevel("player")
     if issecretvalue and issecretvalue(mine) then return nil end
-    if EllesmereUI.IS_FOREVER then
+    if (EllesmereUI.IS_FOREVER or EllesmereUI.IS_CLASSIC_ERA) then
         -- WoW Forever's own nameplate rule (the vanilla one): grey past the
         -- trivial range, green 3+ below, yellow within 2, orange 3-4 above, red 5+.
         local diff = level - mine

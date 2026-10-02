@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -- EUI_UnitFrames_AuraContainers.lua
 -- 12.1 aura displays for unit frames: AuraKit containers replace the oUF aura
 -- element for migrated units. This file is a pure VIEW over the existing
@@ -2784,7 +2785,7 @@ do
     local _, class = UnitClass("player")
     if class == "SHAMAN" then
         local ev = CreateFrame("Frame")
-        ev:RegisterEvent("TRAIT_CONFIG_UPDATED")
+        EUI_SafeRegisterEvent(ev, "TRAIT_CONFIG_UPDATED")
         ev:RegisterEvent("SPELLS_CHANGED")
         ev:SetScript("OnEvent", function()
             if ns.UF_RefreshPoisonTotem and ns.UF_RefreshPoisonTotem() then
@@ -2927,9 +2928,9 @@ do
     local w = CreateFrame("Frame")
     w:RegisterUnitEvent("UNIT_FACTION", "player")
     w:RegisterEvent("CINEMATIC_STOP")
-    w:RegisterUnitEvent("UNIT_ENTERING_VEHICLE", "player")
-    w:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
-    w:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(w, "UNIT_ENTERING_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(w, "UNIT_ENTERED_VEHICLE", "player")
+    EUI_SafeRegisterUnitEvent(w, "UNIT_EXITED_VEHICLE", "player")
     w:SetScript("OnEvent", function(_, event)
         if pending then return end
         pending = true
@@ -2959,8 +2960,8 @@ end
 
 local unitWatcher = CreateFrame("Frame")
 unitWatcher:RegisterEvent("PLAYER_TARGET_CHANGED")
-unitWatcher:RegisterEvent("PLAYER_FOCUS_CHANGED")
-unitWatcher:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+EUI_SafeRegisterEvent(unitWatcher, "PLAYER_FOCUS_CHANGED")
+EUI_SafeRegisterEvent(unitWatcher, "INSTANCE_ENCOUNTER_ENGAGE_UNIT")
 unitWatcher:SetScript("OnEvent", function(_, event)
     -- The Tracked Auras gate first (a friendly/hostile flip re-configures the
     -- debuff groups), then the one re-parse.

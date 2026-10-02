@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIBlizzardSkin_WindowEngine.lua
 --  Shared engine for the Blizzard Window Skins system: style-aware window
@@ -1696,8 +1697,16 @@ local function WindowOn(winKey)
     return WSkin.GetStyle(winKey) ~= "off"
 end
 
+-- Classic Era: these packs are built against the retail windows, while that
+-- client's merchant, mail, quest, trainer, spellbook, map, loot and social
+-- windows are the vanilla layouts (the installed Classic Era ElvUI ships its
+-- own Classic skins for each). Only packs whose window is the same modern
+-- frame there run; every other window keeps Blizzard's own look.
+local CLASSIC_ERA_PACKS = { settings = true }
+
 local function TryApply(entry)
     if not WindowOn(entry.key) then return end
+    if EllesmereUI.IS_CLASSIC_ERA and not CLASSIC_ERA_PACKS[entry.key] then return end
     if not Theme.fontPath then ResolveTheme() end
     local ok, err = pcall(entry.apply)
     if not ok and err then

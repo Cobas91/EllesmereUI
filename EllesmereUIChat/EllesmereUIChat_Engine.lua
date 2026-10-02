@@ -1,4 +1,5 @@
 if EUI_CLIENT_BLOCKED then return end -- pre-12.1 client failsafe (EllesmereUI_ClientGate.lua)
+if EUI_ClassicEnv then setfenv(1, EUI_ClassicEnv) end -- Classic Era port: suite-private API stand-ins (EllesmereUI_ClassicCompat.lua)
 -------------------------------------------------------------------------------
 --  EllesmereUIChat_Engine.lua
 --
@@ -1132,8 +1133,8 @@ end
 -------------------------------------------------------------------------------
 local mirrorFrame = CreateFrame("Frame")
 mirrorFrame:RegisterEvent("UPDATE_CHAT_COLOR")
-mirrorFrame:RegisterEvent("PLAYER_REPORT_SUBMITTED")
-mirrorFrame:RegisterEvent("CAUTIONARY_CHAT_MESSAGE")
+EUI_SafeRegisterEvent(mirrorFrame, "PLAYER_REPORT_SUBMITTED")
+EUI_SafeRegisterEvent(mirrorFrame, "CAUTIONARY_CHAT_MESSAGE")
 
 local _rebuildQueued = false
 local function QueueRebuildAll()

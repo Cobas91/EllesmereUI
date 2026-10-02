@@ -1,0 +1,20 @@
+## Interface: 11509
+## Title: |cff0cd29fEllesmereUI|r Quest Tracker
+## Category: |cff0cd29fEllesmere|rUI
+## Group: EllesmereUI
+## Notes: A clean, updated reskin of Blizzard's Quest Tracker.
+## Author: Ellesmere
+## Version: 9.3.4
+## Dependencies: EllesmereUI
+## SavedVariables: EllesmereUIQuestTrackerDB
+## IconTexture: Interface\AddOns\EllesmereUI\media\eg-logo.tga
+
+# Loader
+EllesmereUIQuestTracker.lua
+
+# Modules
+EllesmereUIQuestTracker_Skin.lua
+EllesmereUIQuestTracker_Visibility.lua
+EllesmereUIQuestTracker_QoL.lua
+
+# Options
